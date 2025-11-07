@@ -1,0 +1,109 @@
+* {
+  font-family: "Inter", sans-serif;
+  transition: all 0.3s ease;
+}
+
+body {
+  background: linear-gradient(135deg, #003566, #001d3d);
+  color: #fff;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.glass-box {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  padding: 40px;
+  width: 100%;
+  max-width: 800px;
+  transition: 0.3s;
+}
+
+.glass-box:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+}
+
+h1 {
+  font-weight: 700;
+  margin-bottom: 15px;
+  text-align: center;
+  color: #ffd60a;
+}
+
+p {
+  text-align: center;
+  color: #dcdcdc;
+  margin-bottom: 30px;
+}
+
+input[type="file"] {
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 10px;
+  padding: 10px;
+  cursor: pointer;
+}
+
+button {
+  width: 100%;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+footer {
+  position: absolute;
+  bottom: 15px;
+  font-size: 0.85rem;
+  color: #ccc;
+  text-align: center;
+  width: 100%;
+}
+
+.btn-primary {
+  background: #ffd60a;
+  border: none;
+  color: #001d3d;
+}
+
+.btn-primary:hover {
+  background: #ffc300;
+  color: #000;
+}
+
+.progress {
+  height: 8px;
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.progress-bar {
+  background-color: #ffd60a;
+}
+
+/* Tema claro */
+body.light {
+  background: #f8f9fa;
+  color: #000;
+}
+
+body.light .glass-box {
+  background: rgba(255, 255, 255, 0.8);
+  color: #000;
+}
+
+body.light footer {
+  color: #555;
+}
+
+body.light h1 {
+  color: #003566;
+}
+
+body.light .btn-outline-light {
+  border-color: #333;
+  color: #333;
+}
