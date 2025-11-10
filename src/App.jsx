@@ -6,7 +6,8 @@ import StatusIndicator from './components/StatusIndicator'
 import DownloadButton from './components/DownloadButton'
 import HistoryPanel from './components/HistoryPanel'
 import './App.css'
-import axios from 'axios'
+
+const API_URL = "https://leitorback-2.onrender.com"
 
 function App() {
   const [file, setFile] = useState(null)
@@ -44,22 +45,32 @@ function App() {
     try {
       setStatus('processing')
       
-      // Usa URL relativa que funciona tanto em dev (com proxy) quanto em produção
-      const apiUrl = '/upload/'
-      const response = await axios.post(apiUrl, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-        responseType: 'blob',
+      const response = await fetch(`${API_URL}/upload/`, {
+        method: "POST",
+        body: formData,
       })
 
-      // Cria URL para download
-      const blob = new Blob([response.data], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-      })
+      if (!response.ok) {
+        // Tenta ler erro como JSON
+        try {
+          const errorData = await response.json()
+          throw new Error(errorData.detail || errorData.erro || 'Erro ao processar arquivo')
+        } catch (jsonError) {
+          throw new Error(`Erro ${response.status}: ${response.statusText}`)
+        }
+      }
+
+      const blob = await response.blob()
       const url = window.URL.createObjectURL(blob)
-      setDownloadUrl(url)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `resultado_${filterType}_${Date.now()}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+
       setStatus('success')
+      setDownloadUrl(url)
 
       // Adiciona ao histórico
       const historyItem = {
@@ -73,36 +84,7 @@ function App() {
       
     } catch (error) {
       setStatus('error')
-      if (error.response) {
-        // Erro HTTP
-        if (error.response.data instanceof Blob) {
-          // Tenta ler como texto JSON
-          error.response.data.text().then(text => {
-            try {
-              const errorData = JSON.parse(text)
-              setErrorMessage(errorData.detail || errorData.erro || 'Erro ao processar arquivo')
-            } catch {
-              setErrorMessage(error.response.status === 400 
-                ? 'Arquivo inválido ou erro no processamento' 
-                : 'Erro ao processar arquivo')
-            }
-          }).catch(() => {
-            setErrorMessage(error.response.status === 400 
-              ? 'Arquivo inválido ou erro no processamento' 
-              : 'Erro ao processar arquivo')
-          })
-        } else if (error.response.data?.detail) {
-          setErrorMessage(error.response.data.detail)
-        } else if (typeof error.response.data === 'object' && error.response.data?.erro) {
-          setErrorMessage(error.response.data.erro)
-        } else {
-          setErrorMessage('Erro ao processar arquivo')
-        }
-      } else if (error.request) {
-        setErrorMessage('Não foi possível conectar ao servidor. Verifique se o servidor está rodando na porta 8010.')
-      } else {
-        setErrorMessage('Erro ao processar arquivo: ' + (error.message || 'Erro desconhecido'))
-      }
+      setErrorMessage(error.message || 'Erro ao processar arquivo. Verifique sua conexão com a internet.')
     }
   }
 

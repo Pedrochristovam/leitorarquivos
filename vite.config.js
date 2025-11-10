@@ -8,11 +8,11 @@ export default defineConfig({
     host: '0.0.0.0', // Permite acesso da rede local
     proxy: {
       '/upload': {
-        target: 'http://localhost:8010',
+        target: 'https://leitorback-2.onrender.com',
         changeOrigin: true
       },
       '/health': {
-        target: 'http://localhost:8010',
+        target: 'https://leitorback-2.onrender.com',
         changeOrigin: true
       }
     }

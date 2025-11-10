@@ -46,10 +46,13 @@ def processar_excel(caminho_arquivo, tipo_filtro):
 
         resultado_final = pd.concat([df, resumo], ignore_index=True)
 
-        # Salva o resultado final
+        # Garante que a pasta static existe
+        os.makedirs("static", exist_ok=True)
+
+        # Salva o resultado final com engine openpyxl para garantir compatibilidade
         nome_saida = f"resultado_{tipo_filtro}.xlsx"
         caminho_saida = os.path.join("static", nome_saida)
-        resultado_final.to_excel(caminho_saida, index=False)
+        resultado_final.to_excel(caminho_saida, index=False, engine='openpyxl')
 
         return caminho_saida, None
 

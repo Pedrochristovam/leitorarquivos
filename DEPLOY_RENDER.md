@@ -97,3 +97,5 @@ Após o deploy:
 - A primeira vez pode demorar alguns minutos
 - Os arquivos em `uploads/` e `resultados/` são temporários e serão perdidos quando o serviço reiniciar (no plano Free)
 
+
+

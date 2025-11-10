@@ -36,7 +36,11 @@ async def upload(file: UploadFile, tipo: str = Form(...)):
         return {"erro": erro}
 
     # Retorna o arquivo Excel processado pro download
-    return FileResponse(resultado, filename=os.path.basename(resultado))
+    return FileResponse(
+        resultado, 
+        filename=os.path.basename(resultado),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
 # Rota para servir o index.html do React
 # Deve vir DEPOIS das rotas da API e dos mounts estáticos
