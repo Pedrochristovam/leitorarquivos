@@ -45,11 +45,18 @@ function App() {
     try {
       setStatus('processing')
       
+      // Cria um AbortController para timeout
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 120000) // 2 minutos de timeout
+      
       const response = await fetch(`${API_URL}/upload/`, {
         method: "POST",
         body: formData,
+        signal: controller.signal,
         // NÃO definir Content-Type manualmente - o browser faz isso automaticamente
       })
+      
+      clearTimeout(timeoutId)
 
       // Verifica se houve erro HTTP
       if (!response.ok) {
@@ -114,7 +121,15 @@ function App() {
       
     } catch (error) {
       setStatus('error')
-      setErrorMessage(error.message || 'Erro ao processar arquivo. Verifique sua conexão com a internet.')
+      
+      // Trata diferentes tipos de erro
+      if (error.name === 'AbortError') {
+        setErrorMessage('Tempo de processamento excedido. O arquivo pode ser muito grande ou o servidor está lento.')
+      } else if (error.message) {
+        setErrorMessage(error.message)
+      } else {
+        setErrorMessage('Erro ao processar arquivo. Verifique sua conexão com a internet e se o servidor está online.')
+      }
       
       // Adiciona ao histórico com erro
       const historyItem = {
