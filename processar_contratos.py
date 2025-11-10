@@ -46,24 +46,10 @@ def processar_excel(caminho_arquivo, tipo_filtro):
 
         resultado_final = pd.concat([df, resumo], ignore_index=True)
 
-        # Garante que a pasta static existe
-        os.makedirs("static", exist_ok=True)
-
-        # Salva o resultado final com engine openpyxl para garantir compatibilidade
+        # Salva o resultado final
         nome_saida = f"resultado_{tipo_filtro}.xlsx"
         caminho_saida = os.path.join("static", nome_saida)
-        
-        # Salva o arquivo Excel usando openpyxl explicitamente
-        with pd.ExcelWriter(caminho_saida, engine='openpyxl') as writer:
-            resultado_final.to_excel(writer, index=False, sheet_name='Sheet1')
-        
-        # Verifica se o arquivo foi criado corretamente
-        if not os.path.exists(caminho_saida):
-            return None, "Erro ao salvar arquivo Excel"
-        
-        # Verifica se o arquivo tem tamanho válido (não está vazio)
-        if os.path.getsize(caminho_saida) == 0:
-            return None, "Arquivo Excel gerado está vazio"
+        resultado_final.to_excel(caminho_saida, index=False)
 
         return caminho_saida, None
 
