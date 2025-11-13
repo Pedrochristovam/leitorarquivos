@@ -154,7 +154,8 @@ function App() {
         // Faz download automático
         const a = document.createElement("a")
         a.href = url
-        a.download = `3026_${bankType.toUpperCase()}_CONSOLIDADO_${Date.now()}.xlsx`
+        const filtroNome = filterType === 'auditado' ? 'AUD' : filterType === 'nauditado' ? 'NAUD' : 'TODOS'
+        a.download = `3026_${bankType.toUpperCase()}_${filtroNome}_FILTRADO_${Date.now()}.xlsx`
         document.body.appendChild(a)
         a.click()
         a.remove()
@@ -227,7 +228,8 @@ function App() {
     if (downloadUrl) {
       const link = document.createElement('a')
       link.href = downloadUrl
-      link.download = `3026_${bankType.toUpperCase()}_CONSOLIDADO_${new Date().getTime()}.xlsx`
+      const filtroNome = filterType === 'auditado' ? 'AUD' : filterType === 'nauditado' ? 'NAUD' : 'TODOS'
+      link.download = `3026_${bankType.toUpperCase()}_${filtroNome}_FILTRADO_${new Date().getTime()}.xlsx`
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)

@@ -81,6 +81,8 @@ if not arquivos or len(arquivos) == 0:
 
 O código atual provavelmente processa apenas 1 arquivo. Precisa ser alterado para processar múltiplos:
 
+**IMPORTANTE:** Retornar as **MESMAS TABELAS ORIGINAIS** com filtros aplicados, mantendo todas as colunas!
+
 **ANTES (processa 1 arquivo):**
 ```python
 file: UploadFile
@@ -92,30 +94,43 @@ df = pd.read_excel(io.BytesIO(contents), engine='openpyxl')
 **DEPOIS (processa múltiplos arquivos):**
 ```python
 files: List[UploadFile]
-todos_contratos = []
+arquivos_filtrados = []
 
 for file in files:
     contents = await file.read()
     df = pd.read_excel(io.BytesIO(contents), engine='openpyxl')
     
+    # MANTER TODAS AS COLUNAS ORIGINAIS - não remover nenhuma!
+    
+    # Aplicar filtro de auditado/não auditado (apenas nas linhas)
+    if filter_type == "auditado":
+        if 'AUDITADO' in df.columns:
+            df = df[df['AUDITADO'].astype(str).str.upper().str.strip().isin(['AUD', 'AUDI'])].copy()
+    elif filter_type == "nauditado":
+        if 'AUDITADO' in df.columns:
+            df = df[df['AUDITADO'].astype(str).str.upper().str.strip() == 'NAUD'].copy()
+    # Se filter_type == "todos", não filtrar
+    
     # Identificar tipo de arquivo pelo nome
     filename = file.filename.upper()
     
     if "3026-11" in filename or "3026-15" in filename:
-        df_processado = processar_3026_11_15(df, bank_type, filename)
-        todos_contratos.append(df_processado)
+        # Remover duplicados na coluna CONTRATO
+        if 'CONTRATO' in df.columns:
+            df = df.drop_duplicates(subset=['CONTRATO'], keep='first').copy()
     elif "3026-12" in filename:
-        df_aud, df_naud = processar_3026_12(df, bank_type, filter_type)
-        # Aplicar filtro
-        if filter_type == "auditado":
-            todos_contratos.append(df_aud)
-        elif filter_type == "nauditado":
-            todos_contratos.append(df_naud)
-        else:  # todos
-            todos_contratos.extend([df_aud, df_naud])
+        # Aplicar filtros de DESTINO DE PAGAMENTO e DESTINO DE COMPLEMENTO
+        valores_remover = ['0x0', '1x4', '6x4', '8x4']
+        if 'DESTINO DE PAGAMENTO' in df.columns:
+            df = df[~df['DESTINO DE PAGAMENTO'].astype(str).isin(valores_remover)].copy()
+        if 'DESTINO DE COMPLEMENTO' in df.columns:
+            df = df[~df['DESTINO DE COMPLEMENTO'].astype(str).isin(valores_remover)].copy()
+    
+    # Adicionar à lista (mantendo todas as colunas originais)
+    arquivos_filtrados.append(df)
 
-# Consolidar todos
-df_consolidado = pd.concat(todos_contratos, ignore_index=True)
+# Consolidar todos mantendo todas as colunas
+df_consolidado = pd.concat(arquivos_filtrados, ignore_index=True)
 ```
 
 ---
@@ -156,46 +171,42 @@ filtragens_path.mkdir(parents=True, exist_ok=True)
 
 ---
 
-### 6. **RETORNAR ARQUIVO EXCEL CONSOLIDADO**
+### 6. **RETORNAR ARQUIVO EXCEL COM DADOS FILTRADOS**
 
-O backend deve retornar um arquivo Excel com múltiplas abas:
+O backend deve retornar as **MESMAS TABELAS ORIGINAIS** com filtros aplicados:
 
 ```python
 from fastapi.responses import StreamingResponse
 import io
 
-# Criar planilha consolidada
+# Criar planilha com dados filtrados (mantendo todas as colunas originais)
 output = io.BytesIO()
 
 with pd.ExcelWriter(output, engine='openpyxl') as writer:
-    # Aba 1: Resumo
-    resumo.to_excel(writer, sheet_name='Resumo Geral', index=False)
-    
-    # Aba 2: Contratos Totais
-    df_consolidado.to_excel(writer, sheet_name='Contratos Totais', index=False)
-    
-    # Aba 3: Contratos Repetidos
-    df_repetidos = df_consolidado[df_consolidado.duplicated(subset=['CONTRATO'], keep=False)]
-    df_repetidos.to_excel(writer, sheet_name='Contratos Repetidos', index=False)
-    
-    # Aba 4: Por Banco
-    df_por_banco = df_consolidado.groupby('BANCO').agg({
-        'CONTRATO': 'count'
-    }).reset_index()
-    df_por_banco.to_excel(writer, sheet_name='Contratos por Banco', index=False)
+    # Uma única aba com todos os dados filtrados
+    # MANTER TODAS AS COLUNAS ORIGINAIS
+    df_consolidado.to_excel(writer, sheet_name='Dados Filtrados', index=False)
 
 output.seek(0)
 excel_data = output.read()
 output.close()
 
+filtro_nome = filter_type.upper()
+banco_nome = "BEMGE" if bank_type == "bemge" else "MINAS_CAIXA"
+
 return StreamingResponse(
     io.BytesIO(excel_data),
     media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     headers={
-        "Content-Disposition": f"attachment; filename=3026_{bank_type.upper()}_CONSOLIDADO.xlsx"
+        "Content-Disposition": f"attachment; filename=3026_{banco_nome}_{filtro_nome}_FILTRADO.xlsx"
     }
 )
 ```
+
+**IMPORTANTE:** 
+- Retornar as mesmas colunas que vieram no arquivo original
+- Apenas filtrar as linhas conforme o filtro selecionado
+- Não criar novas estruturas ou abas extras
 
 ---
 
@@ -263,35 +274,65 @@ async def processar_contratos(
             
             filename = file.filename.upper()
             
-            # Processar conforme tipo
+            # Aplicar filtro de auditado/não auditado PRIMEIRO
+            # MANTER TODAS AS COLUNAS ORIGINAIS
+            if filter_type == "auditado":
+                if 'AUDITADO' in df.columns:
+                    df = df[df['AUDITADO'].astype(str).str.upper().str.strip().isin(['AUD', 'AUDI'])].copy()
+                elif 'AUD' in df.columns:
+                    df = df[df['AUD'].astype(str).str.upper().str.strip().isin(['AUD', 'AUDI'])].copy()
+            elif filter_type == "nauditado":
+                if 'AUDITADO' in df.columns:
+                    df = df[df['AUDITADO'].astype(str).str.upper().str.strip() == 'NAUD'].copy()
+                elif 'AUD' in df.columns:
+                    df = df[df['AUD'].astype(str).str.upper().str.strip() == 'NAUD'].copy()
+            
+            # Processar conforme tipo de arquivo
             if "3026-11" in filename or "3026-15" in filename:
-                df_processado = processar_3026_11_15(df, bank_type, filename)
-                todos_contratos.append(df_processado)
+                # Remover duplicados na coluna CONTRATO
+                if 'CONTRATO' in df.columns:
+                    df = df.drop_duplicates(subset=['CONTRATO'], keep='first').copy()
+                todos_contratos.append(df)
             elif "3026-12" in filename:
-                df_aud, df_naud = processar_3026_12(df, bank_type, filter_type)
-                if filter_type == "auditado":
-                    todos_contratos.append(df_aud)
-                elif filter_type == "nauditado":
-                    todos_contratos.append(df_naud)
-                else:
-                    todos_contratos.extend([df_aud, df_naud])
+                # Aplicar filtros de DESTINO DE PAGAMENTO e DESTINO DE COMPLEMENTO
+                valores_remover = ['0x0', '1x4', '6x4', '8x4']
+                if 'DESTINO DE PAGAMENTO' in df.columns:
+                    df = df[~df['DESTINO DE PAGAMENTO'].astype(str).isin(valores_remover)].copy()
+                if 'DESTINO DE COMPLEMENTO' in df.columns:
+                    df = df[~df['DESTINO DE COMPLEMENTO'].astype(str).isin(valores_remover)].copy()
+                if 'CONTRATOS' in df.columns:
+                    df = df[df['CONTRATOS'].notna()].copy()
+                todos_contratos.append(df)
         
         if not todos_contratos:
             raise HTTPException(400, "Nenhum arquivo válido foi processado")
         
-        # Consolidar
+        # Consolidar todos os arquivos (mantendo todas as colunas originais)
         df_consolidado = pd.concat(todos_contratos, ignore_index=True)
         
-        # Aplicar filtro global se necessário
-        if filter_type != "todos" and 'AUDITADO' in df_consolidado.columns:
-            df_consolidado['AUDITADO'] = df_consolidado['AUDITADO'].astype(str).str.upper().str.strip()
-            if filter_type == "auditado":
-                df_consolidado = df_consolidado[df_consolidado['AUDITADO'] == 'AUD'].copy()
-            elif filter_type == "nauditado":
-                df_consolidado = df_consolidado[df_consolidado['AUDITADO'] == 'NAUD'].copy()
+        # Criar arquivo Excel com dados filtrados
+        output = io.BytesIO()
         
-        # Gerar resumo e planilha consolidada
-        # ... (código de geração da planilha acima)
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            # Uma única aba com todos os dados filtrados
+            # MANTER TODAS AS COLUNAS ORIGINAIS
+            df_consolidado.to_excel(writer, sheet_name='Dados Filtrados', index=False)
+        
+        output.seek(0)
+        excel_data = output.read()
+        output.close()
+        
+        # Retornar arquivo
+        filtro_nome = filter_type.upper()
+        banco_nome = "BEMGE" if bank_type == "bemge" else "MINAS_CAIXA"
+        
+        return StreamingResponse(
+            io.BytesIO(excel_data),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition": f"attachment; filename=3026_{banco_nome}_{filtro_nome}_FILTRADO.xlsx"
+            }
+        )
         
     except HTTPException:
         raise
