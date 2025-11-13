@@ -1,0 +1,102 @@
+.bank-selector-container {
+  width: 100%;
+}
+
+.bank-selector-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+}
+
+.bank-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.bank-option {
+  width: 100%;
+  padding: 20px;
+  border: 2px solid var(--border);
+  border-radius: 16px;
+  background: var(--bg-card);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: left;
+}
+
+.bank-option:hover:not(.disabled) {
+  border-color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.bank-option.active {
+  border-color: var(--primary);
+  background: var(--primary-light);
+  box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.1);
+}
+
+.bank-option.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.bank-option-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.bank-option-icon {
+  font-size: 2rem;
+  flex-shrink: 0;
+}
+
+.bank-option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bank-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.bank-desc {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.bank-option.active .bank-name {
+  color: var(--primary);
+}
+
+@media (max-width: 768px) {
+  .bank-options {
+    grid-template-columns: 1fr;
+  }
+
+  .bank-option {
+    padding: 16px;
+  }
+
+  .bank-option-icon {
+    font-size: 1.5rem;
+  }
+
+  .bank-name {
+    font-size: 1rem;
+  }
+
+  .bank-desc {
+    font-size: 0.8rem;
+  }
+}
+

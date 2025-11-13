@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
-import FileUpload from './components/FileUpload'
-import FilterSelector from './components/FilterSelector'
+import MultiFileUpload from './components/MultiFileUpload'
+import BankSelector from './components/BankSelector'
 import ProcessButton from './components/ProcessButton'
 import StatusIndicator from './components/StatusIndicator'
 import HistoryPanel from './components/HistoryPanel'
@@ -9,45 +9,61 @@ import './App.css'
 const API_URL = "https://leitorback-2.onrender.com"
 
 function App() {
-  const [file, setFile] = useState(null)
-  const [filterType, setFilterType] = useState('auditado')
+  const [files, setFiles] = useState([])
+  const [bankType, setBankType] = useState(null) // 'bemge' ou 'minas_caixa'
   const [status, setStatus] = useState('idle') // idle, uploading, processing, success, error
   const [errorMessage, setErrorMessage] = useState('')
   const [history, setHistory] = useState([])
   const [resultData, setResultData] = useState(null) // Para armazenar os resultados do processamento
+  const [downloadUrl, setDownloadUrl] = useState(null) // URL para download da planilha consolidada
 
-  const handleFileSelect = (selectedFile) => {
-    setFile(selectedFile)
+  const handleFilesChange = (newFiles) => {
+    setFiles(newFiles)
     setStatus('idle')
     setErrorMessage('')
     setResultData(null)
   }
 
-  const handleFilterChange = (filter) => {
-    setFilterType(filter)
+  const handleBankChange = (bank) => {
+    setBankType(bank)
+    setFiles([]) // Limpa arquivos ao trocar de banco
+    setStatus('idle')
+    setErrorMessage('')
+    setResultData(null)
   }
 
   const handleProcess = async () => {
-    if (!file) {
-      setErrorMessage('Por favor, selecione um arquivo')
+    if (!bankType) {
+      setErrorMessage('Por favor, selecione o banco (BEMGE ou MINAS CAIXA)')
+      return
+    }
+
+    if (files.length === 0) {
+      setErrorMessage('Por favor, selecione pelo menos um arquivo Excel')
       return
     }
 
     setStatus('uploading')
     setErrorMessage('')
     setResultData(null)
+    setDownloadUrl(null)
 
     const formData = new FormData()
-    formData.append('file', file)
+    formData.append('bank_type', bankType)
+    
+    // Adiciona todos os arquivos
+    files.forEach((file, index) => {
+      formData.append(`files`, file)
+    })
 
     try {
       setStatus('processing')
       
       // Cria um AbortController para timeout
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 120000) // 2 minutos de timeout
+      const timeoutId = setTimeout(() => controller.abort(), 300000) // 5 minutos de timeout (múltiplos arquivos)
       
-      const response = await fetch(`${API_URL}/processar/`, {
+      const response = await fetch(`${API_URL}/processar_contratos/`, {
         method: "POST",
         body: formData,
         signal: controller.signal,
@@ -61,7 +77,7 @@ function App() {
         // Backend retorna JSON quando há erro
         try {
           const errorData = await response.json()
-          throw new Error(errorData.detail || errorData.erro || 'Erro ao processar arquivo')
+          throw new Error(errorData.detail || errorData.erro || 'Erro ao processar arquivos')
         } catch (jsonError) {
           // Se não conseguir ler como JSON, lança erro genérico
           if (jsonError instanceof Error && jsonError.message) {
@@ -71,26 +87,58 @@ function App() {
         }
       }
 
-      // Backend retorna JSON com os resultados
-      const result = await response.json()
+      // Verifica o content-type
+      const contentType = response.headers.get("content-type") || ""
       
-      // Verifica se há erro na resposta
-      if (result.erro) {
-        throw new Error(result.erro)
+      if (contentType.includes("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) {
+        // Backend retorna arquivo Excel consolidado
+        const blob = await response.blob()
+        
+        if (blob.size === 0) {
+          throw new Error('Arquivo gerado está vazio')
+        }
+
+        const url = window.URL.createObjectURL(blob)
+        setDownloadUrl(url)
+        
+        // Faz download automático
+        const a = document.createElement("a")
+        a.href = url
+        a.download = `3026_${bankType.toUpperCase()}_CONSOLIDADO_${Date.now()}.xlsx`
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+
+        setTimeout(() => {
+          window.URL.revokeObjectURL(url)
+        }, 100)
+
+        setResultData({
+          message: 'Processamento concluído com sucesso!',
+          total_files: files.length,
+          bank: bankType
+        })
+      } else {
+        // Backend retorna JSON com os resultados
+        const result = await response.json()
+        
+        if (result.erro) {
+          throw new Error(result.erro)
+        }
+
+        setResultData(result)
       }
 
-      // Armazena os resultados
-      setResultData(result)
       setStatus('success')
 
       // Adiciona ao histórico
       const historyItem = {
         id: Date.now(),
-        filename: file.name,
-        filterType: filterType,
+        filenames: files.map(f => f.name),
+        bankType: bankType,
         date: new Date().toLocaleString('pt-BR'),
         status: 'success',
-        result: result
+        result: resultData
       }
       setHistory([historyItem, ...history])
       
@@ -99,22 +147,33 @@ function App() {
       
       // Trata diferentes tipos de erro
       if (error.name === 'AbortError') {
-        setErrorMessage('Tempo de processamento excedido. O arquivo pode ser muito grande ou o servidor está lento.')
+        setErrorMessage('Tempo de processamento excedido. Os arquivos podem ser muito grandes ou o servidor está lento.')
       } else if (error.message) {
         setErrorMessage(error.message)
       } else {
-        setErrorMessage('Erro ao processar arquivo. Verifique sua conexão com a internet e se o servidor está online.')
+        setErrorMessage('Erro ao processar arquivos. Verifique sua conexão com a internet e se o servidor está online.')
       }
       
       // Adiciona ao histórico com erro
       const historyItem = {
         id: Date.now(),
-        filename: file?.name || 'Arquivo desconhecido',
-        filterType: filterType,
+        filenames: files.map(f => f.name),
+        bankType: bankType,
         date: new Date().toLocaleString('pt-BR'),
         status: 'error'
       }
       setHistory([historyItem, ...history])
+    }
+  }
+
+  const handleDownload = () => {
+    if (downloadUrl) {
+      const link = document.createElement('a')
+      link.href = downloadUrl
+      link.download = `3026_${bankType.toUpperCase()}_CONSOLIDADO_${new Date().getTime()}.xlsx`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
     }
   }
 
@@ -137,21 +196,24 @@ function App() {
         </div>
 
         <div className="content">
-          <FileUpload 
-            file={file} 
-            onFileSelect={handleFileSelect}
+          <BankSelector 
+            value={bankType} 
+            onChange={handleBankChange}
             disabled={status === 'uploading' || status === 'processing'}
           />
 
-          <FilterSelector 
-            value={filterType} 
-            onChange={handleFilterChange}
-            disabled={status === 'uploading' || status === 'processing'}
-          />
+          {bankType && (
+            <MultiFileUpload 
+              files={files} 
+              onFilesChange={handleFilesChange}
+              disabled={status === 'uploading' || status === 'processing'}
+              bankType={bankType}
+            />
+          )}
 
           <ProcessButton 
             onClick={handleProcess}
-            disabled={!file || status === 'uploading' || status === 'processing'}
+            disabled={!bankType || files.length === 0 || status === 'uploading' || status === 'processing'}
             status={status}
           />
 
@@ -162,14 +224,29 @@ function App() {
 
           {status === 'success' && resultData && (
             <div className="result-display">
-              <h3>Resultado do Processamento</h3>
+              <h3>Processamento Concluído!</h3>
               <div className="result-info">
-                <p><strong>Total de Linhas:</strong> {resultData.total_linhas || resultData.totalLinhas || 'N/A'}</p>
-                {resultData.total_colunas && (
-                  <p><strong>Total de Colunas:</strong> {resultData.total_colunas || resultData.totalColunas || 'N/A'}</p>
-                )}
+                <p><strong>Banco:</strong> {bankType === 'bemge' ? 'BEMGE' : 'MINAS CAIXA'}</p>
+                <p><strong>Arquivos Processados:</strong> {resultData.total_files || files.length}</p>
                 {resultData.total_contratos && (
-                  <p><strong>Total de Contratos:</strong> {resultData.total_contratos || resultData.totalContratos || 'N/A'}</p>
+                  <p><strong>Total de Contratos:</strong> {resultData.total_contratos}</p>
+                )}
+                {resultData.total_auditados && (
+                  <p><strong>Contratos Auditados:</strong> {resultData.total_auditados}</p>
+                )}
+                {resultData.total_nauditados && (
+                  <p><strong>Contratos Não Auditados:</strong> {resultData.total_nauditados}</p>
+                )}
+                {resultData.total_repetidos && (
+                  <p><strong>Contratos Repetidos:</strong> {resultData.total_repetidos}</p>
+                )}
+                {downloadUrl && (
+                  <button 
+                    onClick={handleDownload}
+                    className="download-consolidated-btn"
+                  >
+                    📥 Baixar Planilha Consolidada
+                  </button>
                 )}
               </div>
             </div>

@@ -120,6 +120,30 @@
   margin-right: 8px;
 }
 
+.download-consolidated-btn {
+  width: 100%;
+  padding: 16px;
+  margin-top: 16px;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.download-consolidated-btn:hover {
+  background: var(--primary-dark);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.3);
+}
+
 @media (max-width: 768px) {
   .main-card {
     padding: 30px 20px;
