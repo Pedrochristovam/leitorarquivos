@@ -4,9 +4,9 @@ import './FilterSelector.css'
 
 function FilterSelector({ value, onChange, disabled }) {
   const options = [
-    { value: 'auditado', label: 'Auditado (AUDI)', icon: '✅' },
-    { value: 'nauditado', label: 'Não Auditado (NAUD)', icon: '⏳' },
-    { value: 'todos', label: 'Todos', icon: '📋' }
+    { value: 'auditado', label: 'Auditado (AUDI)' },
+    { value: 'nauditado', label: 'Não Auditado (NAUD)' },
+    { value: 'todos', label: 'Todos' }
   ]
 
   return (
@@ -25,7 +25,6 @@ function FilterSelector({ value, onChange, disabled }) {
             onClick={() => !disabled && onChange(option.value)}
             disabled={disabled}
           >
-            <span className="option-icon">{option.icon}</span>
             <span className="option-label">{option.label}</span>
             {value === option.value && (
               <span className="check-mark">✓</span>

@@ -13,7 +13,7 @@
 }
 
 .filter-icon {
-  color: var(--accent);
+  color: var(--primary);
 }
 
 .filter-options {
@@ -27,7 +27,7 @@
   align-items: center;
   gap: 12px;
   padding: 16px 20px;
-  background: rgba(255, 255, 255, 0.7);
+  background: #ffffff;
   border: 2px solid var(--border);
   border-radius: 12px;
   cursor: pointer;
@@ -54,26 +54,21 @@
 }
 
 .filter-option:hover:not(.disabled) {
-  border-color: var(--accent);
-  background: rgba(255, 214, 10, 0.1);
+  border-color: var(--primary);
+  background: var(--primary-light);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(255, 214, 10, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 82, 204, 0.2);
 }
 
 .filter-option.active {
-  border-color: var(--accent);
-  background: rgba(255, 214, 10, 0.15);
-  box-shadow: 0 4px 16px rgba(255, 214, 10, 0.3);
+  border-color: var(--primary);
+  background: var(--primary-light);
+  box-shadow: 0 4px 16px rgba(0, 82, 204, 0.3);
 }
 
 .filter-option.disabled {
   opacity: 0.6;
   cursor: not-allowed;
-}
-
-.option-icon {
-  font-size: 1.5rem;
-  flex-shrink: 0;
 }
 
 .option-label {
@@ -88,8 +83,8 @@
   right: 8px;
   width: 24px;
   height: 24px;
-  background: var(--accent);
-  color: var(--primary-dark);
+  background: var(--primary);
+  color: white;
   border-radius: 50%;
   display: flex;
   align-items: center;

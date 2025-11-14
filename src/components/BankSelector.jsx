@@ -17,7 +17,6 @@ function BankSelector({ value, onChange, disabled }) {
           disabled={disabled}
         >
           <div className="bank-option-content">
-            <div className="bank-option-icon">🏦</div>
             <div className="bank-option-text">
               <span className="bank-name">BEMGE</span>
               <span className="bank-desc">Banco do Estado de Minas Gerais</span>
@@ -32,7 +31,6 @@ function BankSelector({ value, onChange, disabled }) {
           disabled={disabled}
         >
           <div className="bank-option-content">
-            <div className="bank-option-icon">🏛️</div>
             <div className="bank-option-text">
               <span className="bank-name">MINAS CAIXA</span>
               <span className="bank-desc">Caixa Econômica de Minas Gerais</span>
@@ -45,4 +43,5 @@ function BankSelector({ value, onChange, disabled }) {
 }
 
 export default BankSelector
+
 

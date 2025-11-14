@@ -16,7 +16,7 @@
   border: 2px dashed var(--border);
   border-radius: 16px;
   padding: 24px;
-  background: var(--bg-secondary);
+  background: #ffffff;
   transition: all 0.3s ease;
   cursor: pointer;
   position: relative;
@@ -26,7 +26,7 @@
 
 .multi-file-upload-area:hover:not(.disabled) {
   border-color: var(--primary);
-  background: var(--bg-card);
+  background: var(--primary-light);
 }
 
 .multi-file-upload-area.dragging {
@@ -92,7 +92,7 @@
   align-items: center;
   gap: 12px;
   padding: 12px;
-  background: var(--bg-card);
+  background: #ffffff;
   border: 1px solid var(--border);
   border-radius: 12px;
   transition: all 0.2s ease;
@@ -170,6 +170,7 @@
   background: var(--primary);
   color: white;
   transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 82, 204, 0.2);
 }
 
 .files-count {
@@ -197,4 +198,5 @@
     font-size: 0.9rem;
   }
 }
+
 

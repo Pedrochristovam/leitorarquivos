@@ -104,3 +104,4 @@ async def processar_contratos(
 
 **IMPORTANTE:** O backend deve retornar exatamente as mesmas colunas que vieram no arquivo original, apenas com as linhas filtradas conforme o filtro selecionado (auditado, não auditado ou todos).
 
+

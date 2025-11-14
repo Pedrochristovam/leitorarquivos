@@ -271,3 +271,4 @@ CONTRATO | AUDITADO | VALOR | DATA | OUTRAS_COLUNAS
 
 **IMPORTANTE:** O backend deve retornar as mesmas colunas que vieram no arquivo original, apenas com as linhas filtradas conforme o filtro selecionado.
 
+

@@ -343,3 +343,4 @@ def gerar_resumo(df: pd.DataFrame, bank: str):
 **Data:** Hoje  
 **Status:** Aguardando implementação no backend
 
+

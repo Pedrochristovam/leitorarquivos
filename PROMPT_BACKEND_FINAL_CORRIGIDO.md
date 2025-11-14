@@ -192,3 +192,4 @@ O backend deve:
 
 **Por favor, implemente seguindo exatamente essas especificações baseadas nos dados reais.**
 
+

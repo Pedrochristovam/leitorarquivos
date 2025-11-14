@@ -248,7 +248,6 @@ function App() {
       <div className="main-card">
         <div className="header">
           <h1 className="title">
-            <span className="title-icon">📊</span>
             Sistema de Contratos 3026
           </h1>
           <p className="subtitle">Processe e filtre planilhas de contratos de forma eficiente</p>
@@ -317,7 +316,7 @@ function App() {
                     onClick={handleDownload}
                     className="download-consolidated-btn"
                   >
-                    📥 Baixar Planilha Consolidada
+                    Baixar Planilha Consolidada
                   </button>
                 )}
               </div>
