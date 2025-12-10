@@ -48,10 +48,13 @@ def processar_excel(caminho_arquivo, tipo_filtro):
 
         # Salva o resultado final
         nome_saida = f"resultado_{tipo_filtro}.xlsx"
+        # Garante que a pasta static exista
+        os.makedirs("static", exist_ok=True)
         caminho_saida = os.path.join("static", nome_saida)
         resultado_final.to_excel(caminho_saida, index=False)
 
-        return caminho_saida, None
+        # Retorna apenas o nome do arquivo para que o chamador construa a URL de download
+        return nome_saida, None
 
     except Exception as e:
         return None, str(e)

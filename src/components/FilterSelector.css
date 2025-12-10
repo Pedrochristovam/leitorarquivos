@@ -1,5 +1,12 @@
 .filter-selector-container {
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.filter-group {
+  width: 100%;
 }
 
 .filter-label {
@@ -20,6 +27,10 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 12px;
+}
+
+.filter-options.file-type-options {
+  grid-template-columns: repeat(4, 1fr);
 }
 
 .filter-option {
@@ -111,8 +122,18 @@
     grid-template-columns: 1fr;
   }
 
+  .filter-options.file-type-options {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
   .filter-option {
     padding: 14px 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .filter-options.file-type-options {
+    grid-template-columns: 1fr;
   }
 }
 

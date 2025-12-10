@@ -13,6 +13,7 @@ function App() {
   const [files, setFiles] = useState([])
   const [bankType, setBankType] = useState(null) // 'bemge' ou 'minas_caixa'
   const [filterType, setFilterType] = useState('todos') // 'auditado', 'nauditado', 'todos'
+  const [fileType, setFileType] = useState('todos') // '3026-11', '3026-12', '3026-15', 'todos'
   const [status, setStatus] = useState('idle') // idle, uploading, processing, success, error
   const [errorMessage, setErrorMessage] = useState('')
   const [history, setHistory] = useState([])
@@ -32,10 +33,15 @@ function App() {
     setStatus('idle')
     setErrorMessage('')
     setResultData(null)
+    setFileType('todos')
   }
 
   const handleFilterChange = (filter) => {
     setFilterType(filter)
+  }
+
+  const handleFileTypeChange = (type) => {
+    setFileType(type)
   }
 
   const handleProcess = async () => {
@@ -57,6 +63,7 @@ function App() {
     const formData = new FormData()
     formData.append('bank_type', bankType)
     formData.append('filter_type', filterType) // Adiciona o filtro de auditado/não auditado
+    formData.append('file_type', fileType) // Adiciona o tipo de arquivo (3026-11, 3026-12, 3026-15)
     
     // Adiciona todos os arquivos
     files.forEach((file, index) => {
@@ -155,7 +162,8 @@ function App() {
         const a = document.createElement("a")
         a.href = url
         const filtroNome = filterType === 'auditado' ? 'AUD' : filterType === 'nauditado' ? 'NAUD' : 'TODOS'
-        a.download = `3026_${bankType.toUpperCase()}_${filtroNome}_FILTRADO_${Date.now()}.xlsx`
+        const tipoArquivo = fileType === 'todos' ? '' : `_${fileType}`
+        a.download = `3026${tipoArquivo}_${bankType.toUpperCase()}_${filtroNome}_FILTRADO_${Date.now()}.xlsx`
         document.body.appendChild(a)
         a.click()
         a.remove()
@@ -188,6 +196,7 @@ function App() {
         filenames: files.map(f => f.name),
         bankType: bankType,
         filterType: filterType,
+        fileType: fileType,
         date: new Date().toLocaleString('pt-BR'),
         status: 'success',
         result: resultData
@@ -217,6 +226,7 @@ function App() {
         filenames: files.map(f => f.name),
         bankType: bankType,
         filterType: filterType,
+        fileType: fileType,
         date: new Date().toLocaleString('pt-BR'),
         status: 'error'
       }
@@ -229,7 +239,8 @@ function App() {
       const link = document.createElement('a')
       link.href = downloadUrl
       const filtroNome = filterType === 'auditado' ? 'AUD' : filterType === 'nauditado' ? 'NAUD' : 'TODOS'
-      link.download = `3026_${bankType.toUpperCase()}_${filtroNome}_FILTRADO_${new Date().getTime()}.xlsx`
+      const tipoArquivo = fileType === 'todos' ? '' : `_${fileType}`
+      link.download = `3026${tipoArquivo}_${bankType.toUpperCase()}_${filtroNome}_FILTRADO_${new Date().getTime()}.xlsx`
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
@@ -272,6 +283,8 @@ function App() {
               <FilterSelector 
                 value={filterType} 
                 onChange={handleFilterChange}
+                fileType={fileType}
+                onFileTypeChange={handleFileTypeChange}
                 disabled={status === 'uploading' || status === 'processing'}
               />
             </>
