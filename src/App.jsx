@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import MultiFileUpload from './components/MultiFileUpload'
 import BankSelector from './components/BankSelector'
 import FilterSelector from './components/FilterSelector'
+import PeriodFilter from './components/PeriodFilter'
 import ProcessButton from './components/ProcessButton'
 import StatusIndicator from './components/StatusIndicator'
 import HistoryPanel from './components/HistoryPanel'
@@ -19,6 +20,11 @@ function App() {
   const [history, setHistory] = useState([])
   const [resultData, setResultData] = useState(null) // Para armazenar os resultados do processamento
   const [downloadUrl, setDownloadUrl] = useState(null) // URL para download da planilha consolidada
+  
+  // Estados para filtro de período (DT.MANIFESTAÇÃO)
+  const [periodFilterEnabled, setPeriodFilterEnabled] = useState(false)
+  const [referenceDate, setReferenceDate] = useState(new Date().toISOString().split('T')[0]) // Data atual
+  const [monthsBack, setMonthsBack] = useState(2) // Padrão: 2 meses
 
   const handleFilesChange = (newFiles) => {
     setFiles(newFiles)
@@ -64,6 +70,13 @@ function App() {
     formData.append('bank_type', bankType)
     formData.append('filter_type', filterType) // Adiciona o filtro de auditado/não auditado
     formData.append('file_type', fileType) // Adiciona o tipo de arquivo (3026-11, 3026-12, 3026-15)
+    
+    // Adiciona filtro de período (DT.MANIFESTAÇÃO)
+    formData.append('period_filter_enabled', periodFilterEnabled ? 'true' : 'false')
+    if (periodFilterEnabled) {
+      formData.append('reference_date', referenceDate)
+      formData.append('months_back', monthsBack.toString())
+    }
     
     // Adiciona todos os arquivos
     files.forEach((file, index) => {
@@ -285,6 +298,16 @@ function App() {
                 onChange={handleFilterChange}
                 fileType={fileType}
                 onFileTypeChange={handleFileTypeChange}
+                disabled={status === 'uploading' || status === 'processing'}
+              />
+
+              <PeriodFilter
+                enabled={periodFilterEnabled}
+                onToggle={setPeriodFilterEnabled}
+                referenceDate={referenceDate}
+                onDateChange={setReferenceDate}
+                monthsBack={monthsBack}
+                onMonthsChange={setMonthsBack}
                 disabled={status === 'uploading' || status === 'processing'}
               />
             </>
