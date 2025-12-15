@@ -513,3 +513,5 @@ async def processar_contratos(
 **Data:** 10/12/2024
 **Status:** Aguardando implementação no backend
 
+
+
