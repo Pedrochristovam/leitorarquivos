@@ -1,8 +1,9 @@
 import React, { useState } from 'react'
 import { Calendar, Clock } from 'lucide-react'
-import './PeriodFilter.css'
+import './HabitacionalFilter.css'
 
-function PeriodFilter({ enabled, onToggle, referenceDate, onDateChange, monthsBack, onMonthsChange, disabled }) {
+function HabitacionalFilter({ enabled, onToggle, referenceDate, onDateChange, monthsBack, onMonthsChange, disabled, label }) {
+  const displayLabel = label || "Filtro por Data Habitacional (Coluna W) - 3026-11"
   
   const handleDateChange = (e) => {
     onDateChange(e.target.value)
@@ -13,14 +14,14 @@ function PeriodFilter({ enabled, onToggle, referenceDate, onDateChange, monthsBa
   }
 
   return (
-    <div className="period-filter-container">
-      <div className="period-filter-header">
-        <label className="period-filter-label">
-          <Calendar size={18} className="period-icon" />
-          Filtro por Período (DT.MANIFESTAÇÃO)
+    <div className="habitacional-filter-container">
+      <div className="habitacional-filter-header">
+        <label className="habitacional-filter-label">
+          <Calendar size={18} className="habitacional-icon" />
+          {displayLabel}
         </label>
         
-        <label className="period-toggle">
+        <label className="habitacional-toggle">
           <input
             type="checkbox"
             checked={enabled}
@@ -33,9 +34,9 @@ function PeriodFilter({ enabled, onToggle, referenceDate, onDateChange, monthsBa
       </div>
 
       {enabled && (
-        <div className="period-filter-controls">
-          <div className="period-control-group">
-            <label className="period-control-label">
+        <div className="habitacional-filter-controls">
+          <div className="habitacional-control-group">
+            <label className="habitacional-control-label">
               <Calendar size={16} />
               Data de Referência
             </label>
@@ -44,12 +45,12 @@ function PeriodFilter({ enabled, onToggle, referenceDate, onDateChange, monthsBa
               value={referenceDate}
               onChange={handleDateChange}
               disabled={disabled}
-              className="period-date-input"
+              className="habitacional-date-input"
             />
           </div>
 
-          <div className="period-control-group">
-            <label className="period-control-label">
+          <div className="habitacional-control-group">
+            <label className="habitacional-control-label">
               <Clock size={16} />
               Meses para Trás
             </label>
@@ -57,10 +58,10 @@ function PeriodFilter({ enabled, onToggle, referenceDate, onDateChange, monthsBa
               value={monthsBack}
               onChange={handleMonthsChange}
               disabled={disabled}
-              className="period-months-select"
+              className="habitacional-months-select"
             >
               <option value={1}>1 mês</option>
-              <option value={2}>2 meses</option>
+              <option value={2}>2 meses (Padrão)</option>
               <option value={3}>3 meses</option>
               <option value={4}>4 meses</option>
               <option value={5}>5 meses</option>
@@ -69,9 +70,9 @@ function PeriodFilter({ enabled, onToggle, referenceDate, onDateChange, monthsBa
             </select>
           </div>
 
-          <div className="period-info">
-            <span className="period-info-text">
-              Filtrará contratos de {monthsBack} {monthsBack === 1 ? 'mês' : 'meses'} antes de {referenceDate ? new Date(referenceDate + 'T00:00:00').toLocaleDateString('pt-BR') : 'data selecionada'}
+          <div className="habitacional-info">
+            <span className="habitacional-info-text">
+              Filtrará contratos com Data Habitacional dos últimos {monthsBack} {monthsBack === 1 ? 'mês' : 'meses'} antes de {referenceDate ? new Date(referenceDate + 'T00:00:00').toLocaleDateString('pt-BR') : 'data selecionada'}
             </span>
           </div>
         </div>
@@ -80,8 +81,5 @@ function PeriodFilter({ enabled, onToggle, referenceDate, onDateChange, monthsBa
   )
 }
 
-export default PeriodFilter
-
-
-
+export default HabitacionalFilter
 

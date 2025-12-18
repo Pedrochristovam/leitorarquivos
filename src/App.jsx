@@ -3,6 +3,7 @@ import MultiFileUpload from './components/MultiFileUpload'
 import BankSelector from './components/BankSelector'
 import FilterSelector from './components/FilterSelector'
 import PeriodFilter from './components/PeriodFilter'
+import HabitacionalFilter from './components/HabitacionalFilter'
 import ProcessButton from './components/ProcessButton'
 import StatusIndicator from './components/StatusIndicator'
 import HistoryPanel from './components/HistoryPanel'
@@ -25,6 +26,21 @@ function App() {
   const [periodFilterEnabled, setPeriodFilterEnabled] = useState(false)
   const [referenceDate, setReferenceDate] = useState(new Date().toISOString().split('T')[0]) // Data atual
   const [monthsBack, setMonthsBack] = useState(2) // Padrão: 2 meses
+  
+  // Estados para filtro de Data Habitacional (Coluna W) - 3026-11 BEMGE
+  const [habitacionalFilterEnabled, setHabitacionalFilterEnabled] = useState(false)
+  const [habitacionalReferenceDate, setHabitacionalReferenceDate] = useState(new Date().toISOString().split('T')[0])
+  const [habitacionalMonthsBack, setHabitacionalMonthsBack] = useState(2) // Padrão: 2 meses
+  
+  // Estados para filtro MINAS CAIXA 3026-11 (Coluna Y)
+  const [minasCaixa3026_11FilterEnabled, setMinasCaixa3026_11FilterEnabled] = useState(false)
+  const [minasCaixa3026_11ReferenceDate, setMinasCaixa3026_11ReferenceDate] = useState(new Date().toISOString().split('T')[0])
+  const [minasCaixa3026_11MonthsBack, setMinasCaixa3026_11MonthsBack] = useState(2)
+  
+  // Estados para filtro MINAS CAIXA 3026-15 (Coluna AB)
+  const [minasCaixa3026_15FilterEnabled, setMinasCaixa3026_15FilterEnabled] = useState(false)
+  const [minasCaixa3026_15ReferenceDate, setMinasCaixa3026_15ReferenceDate] = useState(new Date().toISOString().split('T')[0])
+  const [minasCaixa3026_15MonthsBack, setMinasCaixa3026_15MonthsBack] = useState(2)
 
   const handleFilesChange = (newFiles) => {
     setFiles(newFiles)
@@ -76,6 +92,40 @@ function App() {
     if (periodFilterEnabled) {
       formData.append('reference_date', referenceDate)
       formData.append('months_back', monthsBack.toString())
+    }
+    
+    // Adiciona filtro de Data Habitacional - 3026-11
+    const is3026_11 = files.some(f => f.name.toUpperCase().includes('3026-11'))
+    const is3026_15 = files.some(f => f.name.toUpperCase().includes('3026-15'))
+    
+    // BEMGE 3026-11 - Coluna W
+    const shouldShowHabitacionalBEMGE = bankType === 'bemge' && is3026_11
+    // MINAS CAIXA 3026-11 - Coluna Y
+    const shouldShowMinasCaixa3026_11 = bankType === 'minas_caixa' && is3026_11
+    
+    // Usar o filtro correto conforme o banco (backend diferencia pelo bank_type)
+    if (shouldShowHabitacionalBEMGE) {
+      formData.append('habitacional_filter_enabled', habitacionalFilterEnabled ? 'true' : 'false')
+      if (habitacionalFilterEnabled) {
+        formData.append('habitacional_reference_date', habitacionalReferenceDate)
+        formData.append('habitacional_months_back', habitacionalMonthsBack.toString())
+      }
+    } else if (shouldShowMinasCaixa3026_11) {
+      formData.append('habitacional_filter_enabled', minasCaixa3026_11FilterEnabled ? 'true' : 'false')
+      if (minasCaixa3026_11FilterEnabled) {
+        formData.append('habitacional_reference_date', minasCaixa3026_11ReferenceDate)
+        formData.append('habitacional_months_back', minasCaixa3026_11MonthsBack.toString())
+      }
+    } else {
+      formData.append('habitacional_filter_enabled', 'false')
+    }
+    
+    // MINAS CAIXA 3026-15 - Coluna AB
+    const shouldShowMinasCaixa3026_15 = bankType === 'minas_caixa' && is3026_15
+    formData.append('minas_caixa_3026_15_filter_enabled', (shouldShowMinasCaixa3026_15 && minasCaixa3026_15FilterEnabled) ? 'true' : 'false')
+    if (shouldShowMinasCaixa3026_15 && minasCaixa3026_15FilterEnabled) {
+      formData.append('minas_caixa_3026_15_reference_date', minasCaixa3026_15ReferenceDate)
+      formData.append('minas_caixa_3026_15_months_back', minasCaixa3026_15MonthsBack.toString())
     }
     
     // Adiciona todos os arquivos
@@ -310,6 +360,48 @@ function App() {
                 onMonthsChange={setMonthsBack}
                 disabled={status === 'uploading' || status === 'processing'}
               />
+
+              {/* Filtro de Data Habitacional - 3026-11 BEMGE (Coluna W) */}
+              {bankType === 'bemge' && files.some(f => f.name.toUpperCase().includes('3026-11')) && (
+                <HabitacionalFilter
+                  enabled={habitacionalFilterEnabled}
+                  onToggle={setHabitacionalFilterEnabled}
+                  referenceDate={habitacionalReferenceDate}
+                  onDateChange={setHabitacionalReferenceDate}
+                  monthsBack={habitacionalMonthsBack}
+                  onMonthsChange={setHabitacionalMonthsBack}
+                  disabled={status === 'uploading' || status === 'processing'}
+                  label="Filtro por Data Habitacional (Coluna W) - 3026-11"
+                />
+              )}
+              
+              {/* Filtro MINAS CAIXA 3026-11 (Coluna Y) */}
+              {bankType === 'minas_caixa' && files.some(f => f.name.toUpperCase().includes('3026-11')) && (
+                <HabitacionalFilter
+                  enabled={minasCaixa3026_11FilterEnabled}
+                  onToggle={setMinasCaixa3026_11FilterEnabled}
+                  referenceDate={minasCaixa3026_11ReferenceDate}
+                  onDateChange={setMinasCaixa3026_11ReferenceDate}
+                  monthsBack={minasCaixa3026_11MonthsBack}
+                  onMonthsChange={setMinasCaixa3026_11MonthsBack}
+                  disabled={status === 'uploading' || status === 'processing'}
+                  label="Filtro por Data Habitacional (Coluna Y) - 3026-11"
+                />
+              )}
+              
+              {/* Filtro MINAS CAIXA 3026-15 (Coluna AB) */}
+              {bankType === 'minas_caixa' && files.some(f => f.name.toUpperCase().includes('3026-15')) && (
+                <HabitacionalFilter
+                  enabled={minasCaixa3026_15FilterEnabled}
+                  onToggle={setMinasCaixa3026_15FilterEnabled}
+                  referenceDate={minasCaixa3026_15ReferenceDate}
+                  onDateChange={setMinasCaixa3026_15ReferenceDate}
+                  monthsBack={minasCaixa3026_15MonthsBack}
+                  onMonthsChange={setMinasCaixa3026_15MonthsBack}
+                  disabled={status === 'uploading' || status === 'processing'}
+                  label="Filtro por Data (Coluna AB) - 3026-15"
+                />
+              )}
             </>
           )}
 

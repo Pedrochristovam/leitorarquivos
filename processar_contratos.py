@@ -71,6 +71,15 @@ PERIOD_COLUMN_CANDIDATES = [
     "DT.HABITACIONAL",
     "DATA HABITACIONAL"
 ]
+HABITACIONAL_COLUMN_CANDIDATES = [
+    "W",  # Coluna W diretamente (BEMGE 3026-11)
+    "Y",  # Coluna Y diretamente (MINAS CAIXA 3026-11)
+    "DATA HABITACIONAL",
+    "DT.HABITACIONAL",
+    "DT.HAB.",
+    "DT.HAB"
+]
+MINAS_CAIXA_3026_15_COLUMNS = ["S", "W", "Z", "AB", "AD", "AK", "AL"]  # Colunas para remover horas
 DEST_PAGAM_CANDIDATES = ["DEST.PAGAM", "DESTINO DE PAGAMENTO"]
 DEST_COMPLEM_CANDIDATES = ["DEST.COMPLEM", "DESTINO DE COMPLEMENTO"]
 CONTRATO_COLUMN_CANDIDATES = ["CONTRATO"]
@@ -163,16 +172,112 @@ def _apply_3026_12_filters(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def _apply_file_specific_filters(df: pd.DataFrame, filename: str) -> pd.DataFrame:
+def _apply_habitacional_filter(
+    df: pd.DataFrame,
+    reference_date: Optional[str],
+    months_back: int,
+    column_index: Optional[int] = None
+) -> pd.DataFrame:
+    """
+    Aplica filtro de Data Habitacional para 3026-11
+    - BEMGE: coluna W (índice 22)
+    - MINAS CAIXA: coluna Y (índice 24)
+    """
+    habitacional_col = None
+    
+    # Se especificado o índice da coluna, usar diretamente
+    if column_index is not None and len(df.columns) > column_index:
+        habitacional_col = df.columns[column_index]
+    
+    # Se não encontrou, tenta pelos nomes
+    if habitacional_col is None:
+        habitacional_col = _find_column(df, HABITACIONAL_COLUMN_CANDIDATES)
+    
+    if not habitacional_col:
+        return df  # Se não encontrar a coluna, retorna sem filtrar
+
+    end_date = _parse_reference_date(reference_date)
+    months_back = max(months_back, 0)
+    start_date = end_date - pd.DateOffset(months=months_back)
+
+    parsed_dates = pd.to_datetime(df[habitacional_col], errors="coerce")
+    mask = (
+        parsed_dates.notna()
+        & (parsed_dates >= start_date)
+        & (parsed_dates <= end_date)
+    )
+
+    return df[mask].copy()
+
+
+def _apply_minas_caixa_3026_15_filters(
+    df: pd.DataFrame,
+    reference_date: Optional[str],
+    months_back: int
+) -> pd.DataFrame:
+    """
+    Aplica filtros específicos para 3026-15 MINAS CAIXA:
+    - Remove horas das colunas S, W, Z, AB, AD, AK, AL (mantém apenas data)
+    - Aplica filtro de data na coluna AB (últimos 2 meses) se reference_date fornecido
+    """
+    # Remover horas das colunas específicas
+    col_indices = {
+        'S': 18,   # Coluna S é índice 18 (0-indexed)
+        'W': 22,   # Coluna W é índice 22
+        'Z': 25,   # Coluna Z é índice 25
+        'AB': 27,  # Coluna AB é índice 27
+        'AD': 29,  # Coluna AD é índice 29
+        'AK': 36,  # Coluna AK é índice 36
+        'AL': 37   # Coluna AL é índice 37
+    }
+    
+    for col_name, col_idx in col_indices.items():
+        if len(df.columns) > col_idx:
+            col = df.columns[col_idx]
+            # Converter para datetime e remover horas (manter apenas data)
+            try:
+                df[col] = pd.to_datetime(df[col], errors="coerce")
+                # Se for datetime com hora, remover a hora
+                df[col] = df[col].dt.normalize()  # Remove horas, mantém data
+            except Exception:
+                # Se não conseguir converter, manter como está
+                pass
+    
+    # Aplicar filtro de data na coluna AB (últimos 2 meses) APENAS se reference_date fornecido
+    if reference_date and len(df.columns) > 27:  # Coluna AB é índice 27
+        ab_col = df.columns[27]
+        end_date = _parse_reference_date(reference_date)
+        months_back = max(months_back, 0)
+        start_date = end_date - pd.DateOffset(months=months_back)
+        
+        # Converter para datetime se ainda não for
+        parsed_dates = pd.to_datetime(df[ab_col], errors="coerce")
+        mask = (
+            parsed_dates.notna()
+            & (parsed_dates >= start_date)
+            & (parsed_dates <= end_date)
+        )
+        df = df[mask].copy()
+    
+    return df
+
+
+def _apply_file_specific_filters(df: pd.DataFrame, filename: str, bank_type: Optional[str] = None) -> pd.DataFrame:
+    """
+    Aplica filtros específicos por tipo de arquivo.
+    IMPORTANTE: NÃO remove duplicados automaticamente - apenas aplica filtros específicos.
+    """
     upper_name = filename.upper()
+    bank_lower = (bank_type or "").lower()
 
-    contrato_col = _find_column(df, CONTRATO_COLUMN_CANDIDATES)
-    if ("3026-11" in upper_name or "3026-15" in upper_name) and contrato_col:
-        df = df.drop_duplicates(subset=[contrato_col], keep="first").copy()
-
+    # Aplicar filtros específicos do 3026-12 (DEST.PAGAM, DEST.COMPLEM)
     if "3026-12" in upper_name:
         df = _apply_3026_12_filters(df)
 
+    # Para 3026-15 e BEMGE: remover duplicados pela coluna D APENAS se especificado
+    # NOTA: Esta funcionalidade será aplicada apenas quando explicitamente solicitada
+    # Por enquanto, não removemos duplicados automaticamente
+    
     return df
 
 
@@ -182,17 +287,105 @@ def filtrar_planilha_contratos(
     period_filter_enabled: bool,
     reference_date: Optional[str],
     months_back: int,
-    filename: str
+    filename: str,
+    bank_type: Optional[str] = None,
+    habitacional_filter_enabled: bool = False,
+    habitacional_reference_date: Optional[str] = None,
+    habitacional_months_back: int = 2,
+    minas_caixa_3026_15_filter_enabled: bool = False,
+    minas_caixa_3026_15_reference_date: Optional[str] = None,
+    minas_caixa_3026_15_months_back: int = 2
 ) -> pd.DataFrame:
+    """
+    Filtra planilha de contratos.
+    IMPORTANTE: Não remove duplicados automaticamente - mantém todos os dados originais.
+    Aplica apenas os filtros explicitamente habilitados pelo usuário.
+    """
     normalized_filter = (filter_type or "todos").lower()
+    bank_lower = (bank_type or "").lower()
+    filename_upper = filename.upper()
 
     df = pd.read_excel(io.BytesIO(contents), engine="openpyxl")
 
+    # Aplicar filtro de auditado/não auditado (sempre aplicado conforme seleção)
     df = _apply_audit_filter(df, normalized_filter)
-    df = _apply_period_filter(df, period_filter_enabled, reference_date, months_back)
-    df = _apply_file_specific_filters(df, filename)
+    
+    # Aplicar filtro de período APENAS se habilitado pelo usuário
+    if period_filter_enabled:
+        df = _apply_period_filter(df, period_filter_enabled, reference_date, months_back)
+    
+    # Aplicar filtro de Data Habitacional para 3026-11
+    if "3026-11" in filename_upper and habitacional_filter_enabled:
+        if bank_lower == "bemge":
+            # BEMGE: coluna W (índice 22)
+            df = _apply_habitacional_filter(
+                df, 
+                habitacional_reference_date, 
+                habitacional_months_back,
+                column_index=22
+            )
+        elif bank_lower == "minas_caixa":
+            # MINAS CAIXA: coluna Y (índice 24)
+            df = _apply_habitacional_filter(
+                df, 
+                habitacional_reference_date, 
+                habitacional_months_back,
+                column_index=24
+            )
+    
+    # Aplicar filtros específicos para 3026-15 MINAS CAIXA
+    if bank_lower == "minas_caixa" and "3026-15" in filename_upper:
+        df = _apply_minas_caixa_3026_15_filters(
+            df,
+            minas_caixa_3026_15_reference_date if minas_caixa_3026_15_filter_enabled else None,
+            minas_caixa_3026_15_months_back if minas_caixa_3026_15_filter_enabled else 0
+        )
+    
+    # Aplicar filtros específicos do arquivo (sem remover duplicados)
+    df = _apply_file_specific_filters(df, filename, bank_lower)
 
     return df
+
+
+def processar_3026_12_com_abas(
+    contents: bytes,
+    bank_type: str,
+    filter_type: str,
+    period_filter_enabled: bool = False,
+    reference_date: Optional[str] = None,
+    months_back: int = 2
+) -> dict:
+    """
+    Processa arquivo 3026-12 e retorna dicionário com abas separadas para AUD e NAUD
+    Retorna: {'aud': DataFrame, 'naud': DataFrame, 'todos': DataFrame}
+    IMPORTANTE: NÃO remove duplicados - mantém todos os dados originais.
+    """
+    df = pd.read_excel(io.BytesIO(contents), engine="openpyxl")
+    
+    # Aplicar filtros específicos do 3026-12 (DEST.PAGAM, DEST.COMPLEM)
+    df = _apply_3026_12_filters(df)
+    
+    # Aplicar filtro de período APENAS se habilitado
+    if period_filter_enabled:
+        df = _apply_period_filter(df, period_filter_enabled, reference_date, months_back)
+    
+    # Separar por AUDITADO (mantendo todos os dados, incluindo duplicados)
+    audit_col = _find_column(df, AUDIT_COLUMN_CANDIDATES)
+    if not audit_col:
+        return {'aud': pd.DataFrame(), 'naud': pd.DataFrame(), 'todos': df}
+    
+    col_values = df[audit_col].astype(str).str.upper().str.strip()
+    
+    df_aud = df[col_values.isin({"AUD", "AUDI"})].copy()
+    df_naud = df[col_values == "NAUD"].copy()
+    
+    # NÃO remover duplicados - manter todos os dados originais
+    
+    return {
+        'aud': df_aud,
+        'naud': df_naud,
+        'todos': df
+    }
 
 
 def concatenar_dataframes(dataframes: List[pd.DataFrame]) -> pd.DataFrame:
