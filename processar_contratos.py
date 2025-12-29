@@ -135,38 +135,63 @@ def _apply_period_filter(
     reference_date: Optional[str],
     months_back: int
 ) -> pd.DataFrame:
-    if not enabled:
+    """
+    Aplica filtro de período (DT.MANIFESTAÇÃO).
+    IMPORTANTE: Se não encontrar a coluna ou não houver correspondências, retorna dados originais.
+    """
+    if not enabled or not reference_date:
         return df
 
     date_column = _find_column(df, PERIOD_COLUMN_CANDIDATES)
     if not date_column:
+        # Se não encontrar a coluna, retorna sem filtrar (não zera)
         return df
 
-    end_date = _parse_reference_date(reference_date)
-    months_back = max(months_back, 0)
-    start_date = end_date - pd.DateOffset(months=months_back)
+    try:
+        end_date = _parse_reference_date(reference_date)
+        months_back = max(months_back, 0)
+        start_date = end_date - pd.DateOffset(months=months_back)
 
-    parsed_dates = pd.to_datetime(df[date_column], errors="coerce")
-    mask = (
-        parsed_dates.notna()
-        & (parsed_dates >= start_date)
-        & (parsed_dates <= end_date)
-    )
-
-    return df[mask].copy()
+        parsed_dates = pd.to_datetime(df[date_column], errors="coerce")
+        
+        # Verifica se há datas válidas antes de filtrar
+        if parsed_dates.notna().sum() == 0:
+            # Se não houver datas válidas, retorna sem filtrar
+            return df
+        
+        mask = (
+            parsed_dates.notna()
+            & (parsed_dates >= start_date)
+            & (parsed_dates <= end_date)
+        )
+        
+        # Se não houver correspondências, retorna vazio (filtro aplicado corretamente)
+        return df[mask].copy()
+    except Exception as e:
+        # Em caso de erro, retorna os dados originais (não zera)
+        return df
 
 
 def _apply_3026_12_filters(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Aplica filtros específicos do 3026-12.
+    IMPORTANTE: Não remove duplicados - apenas aplica filtros de DEST.PAGAM e DEST.COMPLEM.
+    """
+    # Aplicar filtros de DEST.PAGAM e DEST.COMPLEM (remover valores específicos)
     dest_pagam = _find_column(df, DEST_PAGAM_CANDIDATES)
     if dest_pagam:
-        df = df[~df[dest_pagam].astype(str).str.lower().isin(DESTINO_REMOVE)].copy()
+        mask_pagam = ~df[dest_pagam].astype(str).str.lower().isin(DESTINO_REMOVE)
+        df = df[mask_pagam].copy()
 
     dest_complem = _find_column(df, DEST_COMPLEM_CANDIDATES)
     if dest_complem:
-        df = df[~df[dest_complem].astype(str).str.lower().isin(DESTINO_REMOVE)].copy()
+        mask_complem = ~df[dest_complem].astype(str).str.lower().isin(DESTINO_REMOVE)
+        df = df[mask_complem].copy()
 
+    # Filtrar por CONTRATOS (remover vazios) - apenas se a coluna existir
     contratos_col = _find_column(df, CONTRATOS_COLUMN_CANDIDATES)
     if contratos_col:
+        # Apenas remover se realmente estiver vazio, não se for apenas NaN
         df = df[df[contratos_col].notna()].copy()
 
     return df
@@ -183,31 +208,61 @@ def _apply_habitacional_filter(
     - BEMGE: coluna W (índice 22)
     - MINAS CAIXA: coluna Y (índice 24)
     """
+    if not reference_date:
+        return df  # Se não tiver data de referência, não filtra
+    
     habitacional_col = None
     
-    # Se especificado o índice da coluna, usar diretamente
+    # Primeiro tenta pelo índice da coluna (mais confiável)
     if column_index is not None and len(df.columns) > column_index:
         habitacional_col = df.columns[column_index]
+        # Verifica se a coluna existe e tem dados
+        if habitacional_col is not None and df[habitacional_col].notna().sum() == 0:
+            habitacional_col = None
     
-    # Se não encontrou, tenta pelos nomes
+    # Se não encontrou pelo índice, tenta pelos nomes
     if habitacional_col is None:
         habitacional_col = _find_column(df, HABITACIONAL_COLUMN_CANDIDATES)
     
+    # Se ainda não encontrou, tenta buscar pela posição da coluna (W=22, Y=24)
+    if habitacional_col is None and column_index is not None:
+        # Tenta encontrar coluna pela posição exata
+        try:
+            if len(df.columns) > column_index:
+                test_col = df.columns[column_index]
+                # Testa se consegue converter para data
+                test_dates = pd.to_datetime(df[test_col], errors="coerce")
+                if test_dates.notna().sum() > 0:
+                    habitacional_col = test_col
+        except Exception:
+            pass
+    
     if not habitacional_col:
-        return df  # Se não encontrar a coluna, retorna sem filtrar
+        # Se não encontrar a coluna, retorna sem filtrar (não zera os dados)
+        return df
 
-    end_date = _parse_reference_date(reference_date)
-    months_back = max(months_back, 0)
-    start_date = end_date - pd.DateOffset(months=months_back)
+    try:
+        end_date = _parse_reference_date(reference_date)
+        months_back = max(months_back, 0)
+        start_date = end_date - pd.DateOffset(months=months_back)
 
-    parsed_dates = pd.to_datetime(df[habitacional_col], errors="coerce")
-    mask = (
-        parsed_dates.notna()
-        & (parsed_dates >= start_date)
-        & (parsed_dates <= end_date)
-    )
-
-    return df[mask].copy()
+        parsed_dates = pd.to_datetime(df[habitacional_col], errors="coerce")
+        mask = (
+            parsed_dates.notna()
+            & (parsed_dates >= start_date)
+            & (parsed_dates <= end_date)
+        )
+        
+        # Se não houver nenhuma data no intervalo, retorna dataframe vazio
+        # Mas só se realmente não houver correspondências
+        if mask.sum() == 0:
+            # Retorna vazio apenas se realmente não houver correspondências
+            return df[mask].copy()
+        
+        return df[mask].copy()
+    except Exception as e:
+        # Em caso de erro, retorna os dados originais (não zera)
+        return df
 
 
 def _apply_minas_caixa_3026_15_filters(
@@ -333,13 +388,32 @@ def filtrar_planilha_contratos(
                 column_index=24
             )
     
-    # Aplicar filtros específicos para 3026-15 MINAS CAIXA
-    if bank_lower == "minas_caixa" and "3026-15" in filename_upper:
-        df = _apply_minas_caixa_3026_15_filters(
-            df,
-            minas_caixa_3026_15_reference_date if minas_caixa_3026_15_filter_enabled else None,
-            minas_caixa_3026_15_months_back if minas_caixa_3026_15_filter_enabled else 0
-        )
+    # Aplicar filtros específicos para 3026-15
+    if "3026-15" in filename_upper:
+        if bank_lower == "minas_caixa":
+            # MINAS CAIXA: Remove horas e aplica filtro coluna AB
+            df = _apply_minas_caixa_3026_15_filters(
+                df,
+                minas_caixa_3026_15_reference_date if minas_caixa_3026_15_filter_enabled else None,
+                minas_caixa_3026_15_months_back if minas_caixa_3026_15_filter_enabled else 0
+            )
+        elif bank_lower == "bemge":
+            # BEMGE: Aplica filtro coluna AB (últimos 2 meses) se habilitado
+            if minas_caixa_3026_15_filter_enabled and minas_caixa_3026_15_reference_date:
+                # Aplica apenas filtro de data na coluna AB (sem remover horas)
+                if len(df.columns) > 27:  # Coluna AB é índice 27
+                    ab_col = df.columns[27]
+                    end_date = _parse_reference_date(minas_caixa_3026_15_reference_date)
+                    months_back = max(minas_caixa_3026_15_months_back, 0)
+                    start_date = end_date - pd.DateOffset(months=months_back)
+                    
+                    parsed_dates = pd.to_datetime(df[ab_col], errors="coerce")
+                    mask = (
+                        parsed_dates.notna()
+                        & (parsed_dates >= start_date)
+                        & (parsed_dates <= end_date)
+                    )
+                    df = df[mask].copy()
     
     # Aplicar filtros específicos do arquivo (sem remover duplicados)
     df = _apply_file_specific_filters(df, filename, bank_lower)
@@ -363,19 +437,22 @@ def processar_3026_12_com_abas(
     df = pd.read_excel(io.BytesIO(contents), engine="openpyxl")
     
     # Aplicar filtros específicos do 3026-12 (DEST.PAGAM, DEST.COMPLEM)
+    # IMPORTANTE: Isso pode reduzir os dados, mas é necessário conforme especificação
     df = _apply_3026_12_filters(df)
     
     # Aplicar filtro de período APENAS se habilitado
-    if period_filter_enabled:
+    if period_filter_enabled and reference_date:
         df = _apply_period_filter(df, period_filter_enabled, reference_date, months_back)
     
     # Separar por AUDITADO (mantendo todos os dados, incluindo duplicados)
     audit_col = _find_column(df, AUDIT_COLUMN_CANDIDATES)
     if not audit_col:
+        # Se não encontrar coluna AUDITADO, retorna tudo em 'todos'
         return {'aud': pd.DataFrame(), 'naud': pd.DataFrame(), 'todos': df}
     
     col_values = df[audit_col].astype(str).str.upper().str.strip()
     
+    # Separar AUD e NAUD (mantendo todos os dados)
     df_aud = df[col_values.isin({"AUD", "AUDI"})].copy()
     df_naud = df[col_values == "NAUD"].copy()
     

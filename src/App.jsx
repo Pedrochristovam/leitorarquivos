@@ -120,12 +120,26 @@ function App() {
       formData.append('habitacional_filter_enabled', 'false')
     }
     
-    // MINAS CAIXA 3026-15 - Coluna AB
-    const shouldShowMinasCaixa3026_15 = bankType === 'minas_caixa' && is3026_15
-    formData.append('minas_caixa_3026_15_filter_enabled', (shouldShowMinasCaixa3026_15 && minasCaixa3026_15FilterEnabled) ? 'true' : 'false')
-    if (shouldShowMinasCaixa3026_15 && minasCaixa3026_15FilterEnabled) {
-      formData.append('minas_caixa_3026_15_reference_date', minasCaixa3026_15ReferenceDate)
-      formData.append('minas_caixa_3026_15_months_back', minasCaixa3026_15MonthsBack.toString())
+    // 3026-15 - Coluna AB (BEMGE e MINAS CAIXA)
+    const shouldShow3026_15Filter = is3026_15
+    if (shouldShow3026_15Filter) {
+      // BEMGE usa os mesmos parâmetros mas apenas para filtro de data
+      if (bankType === 'bemge') {
+        formData.append('minas_caixa_3026_15_filter_enabled', habitacionalFilterEnabled ? 'true' : 'false')
+        if (habitacionalFilterEnabled) {
+          formData.append('minas_caixa_3026_15_reference_date', habitacionalReferenceDate)
+          formData.append('minas_caixa_3026_15_months_back', habitacionalMonthsBack.toString())
+        }
+      } else {
+        // MINAS CAIXA usa seus próprios parâmetros
+        formData.append('minas_caixa_3026_15_filter_enabled', minasCaixa3026_15FilterEnabled ? 'true' : 'false')
+        if (minasCaixa3026_15FilterEnabled) {
+          formData.append('minas_caixa_3026_15_reference_date', minasCaixa3026_15ReferenceDate)
+          formData.append('minas_caixa_3026_15_months_back', minasCaixa3026_15MonthsBack.toString())
+        }
+      }
+    } else {
+      formData.append('minas_caixa_3026_15_filter_enabled', 'false')
     }
     
     // Adiciona todos os arquivos
@@ -389,18 +403,31 @@ function App() {
                 />
               )}
               
-              {/* Filtro MINAS CAIXA 3026-15 (Coluna AB) */}
-              {bankType === 'minas_caixa' && files.some(f => f.name.toUpperCase().includes('3026-15')) && (
-                <HabitacionalFilter
-                  enabled={minasCaixa3026_15FilterEnabled}
-                  onToggle={setMinasCaixa3026_15FilterEnabled}
-                  referenceDate={minasCaixa3026_15ReferenceDate}
-                  onDateChange={setMinasCaixa3026_15ReferenceDate}
-                  monthsBack={minasCaixa3026_15MonthsBack}
-                  onMonthsChange={setMinasCaixa3026_15MonthsBack}
-                  disabled={status === 'uploading' || status === 'processing'}
-                  label="Filtro por Data (Coluna AB) - 3026-15"
-                />
+              {/* Filtro 3026-15 (Coluna AB) - BEMGE e MINAS CAIXA */}
+              {files.some(f => f.name.toUpperCase().includes('3026-15')) && (
+                bankType === 'bemge' ? (
+                  <HabitacionalFilter
+                    enabled={habitacionalFilterEnabled}
+                    onToggle={setHabitacionalFilterEnabled}
+                    referenceDate={habitacionalReferenceDate}
+                    onDateChange={setHabitacionalReferenceDate}
+                    monthsBack={habitacionalMonthsBack}
+                    onMonthsChange={setHabitacionalMonthsBack}
+                    disabled={status === 'uploading' || status === 'processing'}
+                    label="Filtro por Data (Coluna AB) - 3026-15"
+                  />
+                ) : (
+                  <HabitacionalFilter
+                    enabled={minasCaixa3026_15FilterEnabled}
+                    onToggle={setMinasCaixa3026_15FilterEnabled}
+                    referenceDate={minasCaixa3026_15ReferenceDate}
+                    onDateChange={setMinasCaixa3026_15ReferenceDate}
+                    monthsBack={minasCaixa3026_15MonthsBack}
+                    onMonthsChange={setMinasCaixa3026_15MonthsBack}
+                    disabled={status === 'uploading' || status === 'processing'}
+                    label="Filtro por Data (Coluna AB) - 3026-15"
+                  />
+                )
               )}
             </>
           )}

@@ -216,12 +216,11 @@ async def processar_contratos(
         df_consolidado.to_excel(writer, sheet_name="Dados Filtrados", index=False)
     output.seek(0)
 
-    # Nomes padronizados para MINAS CAIXA
-    if bank_lower == "minas_caixa":
-        # Identificar tipo de arquivo para nome correto
-        filename_parts = []
-        for f in files:
-            fname_upper = f.filename.upper()
+    # Nomes padronizados conforme banco
+    filename_parts = []
+    for f in files:
+        fname_upper = f.filename.upper()
+        if bank_lower == "minas_caixa":
             if "3026-11" in fname_upper:
                 filename_parts.append("Minas Caixa 3026-11-Habil.Não Homol")
             elif "3026-12" in fname_upper:
@@ -233,15 +232,23 @@ async def processar_contratos(
                     filename_parts.append("Minas Caixa 3026-12-Homol")
             elif "3026-15" in fname_upper:
                 filename_parts.append("Minas Caixa 3026-15-Homol.Neg.Cob")
-        
-        if filename_parts:
-            filename = filename_parts[0] + ".xlsx"
-        else:
-            banco_nome = "MINAS_CAIXA"
-            filtro_nome = filter_lower.upper()
-            filename = f"3026_{banco_nome}_{filtro_nome}_FILTRADO.xlsx"
+        elif bank_lower == "bemge":
+            if "3026-15" in fname_upper:
+                filename_parts.append("Bemge 3026-15-Homol.Neg.Cob")
+            elif "3026-11" in fname_upper:
+                filename_parts.append(f"Bemge 3026-11-{filter_lower.upper()}")
+            elif "3026-12" in fname_upper:
+                if filter_lower == "auditado":
+                    filename_parts.append("Bemge 3026-12-AUD")
+                elif filter_lower == "nauditado":
+                    filename_parts.append("Bemge 3026-12-NAUD")
+                else:
+                    filename_parts.append("Bemge 3026-12-TODOS")
+    
+    if filename_parts:
+        filename = filename_parts[0] + ".xlsx"
     else:
-        banco_nome = "BEMGE"
+        banco_nome = "BEMGE" if bank_lower == "bemge" else "MINAS_CAIXA"
         filtro_nome = filter_lower.upper()
         filename = f"3026_{banco_nome}_{filtro_nome}_FILTRADO.xlsx"
 

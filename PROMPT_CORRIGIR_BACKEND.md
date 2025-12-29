@@ -347,3 +347,4 @@ curl -I -X OPTIONS https://leitorback-2.onrender.com/processar_contratos/ \
 
 **Este prompt deve resolver todos os erros de CORS e 404 que estão impedindo a aplicação de funcionar.**
 
+

@@ -135,3 +135,4 @@ Todas as funcionalidades abaixo são específicas para o banco **BEMGE** e aplic
 **Data de Implementação:** Hoje  
 **Status:** ✅ Implementado e pronto para testes
 
+
