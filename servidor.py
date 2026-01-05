@@ -13,6 +13,10 @@ from processar_contratos import (
     filtrar_planilha_contratos,
     concatenar_dataframes,
     processar_3026_12_com_abas,
+    adicionar_coluna_banco,
+    gerar_resumo_geral,
+    gerar_contratos_repetidos,
+    gerar_contratos_por_banco,
 )
 
 app = FastAPI()
@@ -87,6 +91,7 @@ async def processar_contratos(
             dataframes_aud = []
             dataframes_naud = []
             dataframes_outros = []
+            processed_for_summary = []
             
             for upload_file in files:
                 try:
@@ -143,6 +148,8 @@ async def processar_contratos(
             if dataframes_aud:
                 df_aud_consolidado = concatenar_dataframes(dataframes_aud)
                 if not df_aud_consolidado.empty:
+                    df_aud_consolidado = adicionar_coluna_banco(df_aud_consolidado, bank_lower)
+                    processed_for_summary.append(df_aud_consolidado)
                     if is_minas_caixa:
                         df_aud_consolidado.to_excel(writer, sheet_name="Minas Caixa 3026-12-Homol. Auditado", index=False)
                     else:
@@ -151,6 +158,8 @@ async def processar_contratos(
             if dataframes_naud:
                 df_naud_consolidado = concatenar_dataframes(dataframes_naud)
                 if not df_naud_consolidado.empty:
+                    df_naud_consolidado = adicionar_coluna_banco(df_naud_consolidado, bank_lower)
+                    processed_for_summary.append(df_naud_consolidado)
                     if is_minas_caixa:
                         df_naud_consolidado.to_excel(writer, sheet_name="Minas Caixa 3026-12-Homol.Não Auditado", index=False)
                     else:
@@ -160,11 +169,17 @@ async def processar_contratos(
             if dataframes_outros:
                 df_outros_consolidado = concatenar_dataframes(dataframes_outros)
                 if not df_outros_consolidado.empty:
+                    df_outros_consolidado = adicionar_coluna_banco(df_outros_consolidado, bank_lower)
+                    processed_for_summary.append(df_outros_consolidado)
                     df_outros_consolidado.to_excel(writer, sheet_name="Dados Filtrados", index=False)
             
             # Se não houver nenhum dado, criar aba vazia
             if not dataframes_aud and not dataframes_naud and not dataframes_outros:
                 pd.DataFrame().to_excel(writer, sheet_name="Dados Filtrados", index=False)
+            elif processed_for_summary:
+                df_consolidado_total = concatenar_dataframes(processed_for_summary)
+                if not df_consolidado_total.empty:
+                    _adicionar_abas_resumo(writer, df_consolidado_total, len(files))
         
         output.seek(0)
         
@@ -211,9 +226,11 @@ async def processar_contratos(
     if df_consolidado.empty:
         raise HTTPException(status_code=400, detail="Nenhum dado encontrado após aplicar os filtros")
 
+    df_consolidado = adicionar_coluna_banco(df_consolidado, bank_lower)
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         df_consolidado.to_excel(writer, sheet_name="Dados Filtrados", index=False)
+        _adicionar_abas_resumo(writer, df_consolidado, len(files))
     output.seek(0)
 
     # Nomes padronizados conforme banco
@@ -257,6 +274,20 @@ async def processar_contratos(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
+
+
+def _adicionar_abas_resumo(writer: pd.ExcelWriter, df_consolidado: pd.DataFrame, total_files: int):
+    """
+    Adiciona abas de resumo, contratos repetidos e por banco ao arquivo Excel.
+    """
+    resumo = gerar_resumo_geral(df_consolidado, total_files)
+    resumo.to_excel(writer, sheet_name="Resumo Geral", index=False)
+
+    repetidos = gerar_contratos_repetidos(df_consolidado)
+    repetidos.to_excel(writer, sheet_name="Contratos Repetidos", index=False)
+
+    por_banco = gerar_contratos_por_banco(df_consolidado)
+    por_banco.to_excel(writer, sheet_name="Contratos por Banco", index=False)
 
 
 @app.post("/upload/")

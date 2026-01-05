@@ -418,7 +418,7 @@ def filtrar_planilha_contratos(
     # Aplicar filtros específicos do arquivo (sem remover duplicados)
     df = _apply_file_specific_filters(df, filename, bank_lower)
 
-    return df
+    return adicionar_coluna_banco(df, bank_lower)
 
 
 def processar_3026_12_com_abas(
@@ -459,9 +459,9 @@ def processar_3026_12_com_abas(
     # NÃO remover duplicados - manter todos os dados originais
     
     return {
-        'aud': df_aud,
-        'naud': df_naud,
-        'todos': df
+        'aud': adicionar_coluna_banco(df_aud, bank_type),
+        'naud': adicionar_coluna_banco(df_naud, bank_type),
+        'todos': adicionar_coluna_banco(df, bank_type)
     }
 
 
@@ -469,3 +469,93 @@ def concatenar_dataframes(dataframes: List[pd.DataFrame]) -> pd.DataFrame:
     if not dataframes:
         return pd.DataFrame()
     return pd.concat(dataframes, ignore_index=True)
+
+
+def adicionar_coluna_banco(df: pd.DataFrame, bank_lower: Optional[str]) -> pd.DataFrame:
+    """
+    Garante que exista a coluna 'BANCO' no DataFrame filtrado.
+    Se já existir, não altera; caso contrário, adiciona usando o nome do banco fornecido.
+    """
+    if df is None or df.empty:
+        return df
+
+    resultado = df.copy()
+    if "BANCO" not in resultado.columns:
+        banco_nome = bank_lower.upper() if bank_lower else None
+        resultado["BANCO"] = banco_nome or ""
+    return resultado
+
+
+def gerar_resumo_geral(df: pd.DataFrame, total_arquivos: int) -> pd.DataFrame:
+    """
+    Gera um resumo com totais gerais, auditados, não auditados e repetidos.
+    """
+    total_contratos = len(df)
+    audit_col = _find_column(df, AUDIT_COLUMN_CANDIDATES)
+    total_aud = 0
+    total_naud = 0
+    if audit_col and not df.empty:
+        valores = df[audit_col].astype(str).str.upper().str.strip()
+        total_aud = int(valores.isin({"AUD", "AUDI"}).sum())
+        total_naud = int((valores == "NAUD").sum())
+
+    total_repetidos = int(df[df.duplicated(subset=["CONTRATO"], keep=False)].shape[0]) if "CONTRATO" in df.columns else 0
+
+    valor_total = 0
+    if "VALOR" in df.columns:
+        valor_total = pd.to_numeric(df["VALOR"], errors="coerce").sum()
+
+    valores_resumo = [
+        total_arquivos,
+        total_contratos,
+        total_aud,
+        total_naud,
+        total_repetidos,
+        f"R$ {valor_total:,.2f}" if valor_total and not pd.isna(valor_total) else "N/A"
+    ]
+
+    resumo = pd.DataFrame({
+        "Métrica": [
+            "Total de Arquivos Processados",
+            "Total de Contratos",
+            "Contratos Auditados (AUD)",
+            "Contratos Não Auditados (NAUD)",
+            "Contratos Repetidos",
+            "Valor Total"
+        ],
+        "Valor": valores_resumo
+    })
+    return resumo
+
+
+def gerar_contratos_repetidos(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Retorna apenas os contratos duplicados com coluna de quantidade e informações relevantes.
+    """
+    if "CONTRATO" not in df.columns:
+        return pd.DataFrame({"Mensagem": ["Coluna 'CONTRATO' ausente para identificar repetidos"]})
+
+    repetidos = df[df.duplicated(subset=["CONTRATO"], keep=False)].copy()
+    if repetidos.empty:
+        return pd.DataFrame({"Mensagem": ["Nenhum contrato repetido encontrado"]})
+
+    repetidos["QUANTIDADE"] = repetidos.groupby("CONTRATO")["CONTRATO"].transform("count")
+    colunas = ["CONTRATO"]
+    if "BANCO" in repetidos.columns:
+        colunas.append("BANCO")
+    colunas.append("QUANTIDADE")
+    if "VALOR" in repetidos.columns:
+        colunas.append("VALOR")
+
+    return repetidos[colunas]
+
+
+def gerar_contratos_por_banco(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Agrupa os contratos por banco e soma o número de contratos.
+    """
+    if "BANCO" not in df.columns:
+        return pd.DataFrame({"Mensagem": ["Coluna 'BANCO' ausente para agrupar os contratos"]})
+
+    agrupado = df.groupby("BANCO").agg(TOTAL_CONTRATOS=("CONTRATO", "count")).reset_index()
+    return agrupado
