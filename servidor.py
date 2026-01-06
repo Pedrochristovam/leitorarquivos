@@ -91,6 +91,7 @@ async def processar_contratos(
             dataframes_aud = []
             dataframes_naud = []
             dataframes_outros = []
+            dataframes_todos = []
             processed_for_summary = []
             
             for upload_file in files:
@@ -117,6 +118,9 @@ async def processar_contratos(
                         if filter_lower == "nauditado" or filter_lower == "todos":
                             if not abas['naud'].empty:
                                 dataframes_naud.append(abas['naud'])
+
+                        if not abas['todos'].empty:
+                            dataframes_todos.append(abas['todos'])
                     else:
                         # Processar outros arquivos normalmente
                         df_filtrado = filtrar_planilha_contratos(
@@ -164,6 +168,14 @@ async def processar_contratos(
                         df_naud_consolidado.to_excel(writer, sheet_name="Minas Caixa 3026-12-Homol.Não Auditado", index=False)
                     else:
                         df_naud_consolidado.to_excel(writer, sheet_name="NAUD - Não Auditados", index=False)
+
+            if dataframes_todos:
+                df_todos_consolidado = concatenar_dataframes(dataframes_todos)
+                if not df_todos_consolidado.empty:
+                    df_todos_consolidado = adicionar_coluna_banco(df_todos_consolidado, bank_lower)
+                    banco_nome = "Minas Caixa" if is_minas_caixa else "Bemge"
+                    sheet_name = f"{banco_nome} 3026-12-Todos os Contratos"
+                    df_todos_consolidado.to_excel(writer, sheet_name=sheet_name, index=False)
             
             # Adicionar outros arquivos processados
             if dataframes_outros:
@@ -179,7 +191,19 @@ async def processar_contratos(
             elif processed_for_summary:
                 df_consolidado_total = concatenar_dataframes(processed_for_summary)
                 if not df_consolidado_total.empty:
-                    _adicionar_abas_resumo(writer, df_consolidado_total, len(files))
+                    df_full_dataset = None
+                    if dataframes_todos:
+                        df_full_dataset = concatenar_dataframes(dataframes_todos)
+                        if not df_full_dataset.empty:
+                            df_full_dataset = adicionar_coluna_banco(df_full_dataset, bank_lower)
+                        else:
+                            df_full_dataset = None
+                    _adicionar_abas_resumo(
+                        writer,
+                        df_consolidado_total,
+                        len(files),
+                        df_full=df_full_dataset
+                    )
         
         output.seek(0)
         
@@ -276,17 +300,23 @@ async def processar_contratos(
     )
 
 
-def _adicionar_abas_resumo(writer: pd.ExcelWriter, df_consolidado: pd.DataFrame, total_files: int):
+def _adicionar_abas_resumo(
+    writer: pd.ExcelWriter,
+    df_consolidado: pd.DataFrame,
+    total_files: int,
+    df_full: Optional[pd.DataFrame] = None
+):
     """
     Adiciona abas de resumo, contratos repetidos e por banco ao arquivo Excel.
     """
     resumo = gerar_resumo_geral(df_consolidado, total_files)
     resumo.to_excel(writer, sheet_name="Resumo Geral", index=False)
 
-    repetidos = gerar_contratos_repetidos(df_consolidado)
+    base_df = df_full if df_full is not None else df_consolidado
+    repetidos = gerar_contratos_repetidos(base_df)
     repetidos.to_excel(writer, sheet_name="Contratos Repetidos", index=False)
 
-    por_banco = gerar_contratos_por_banco(df_consolidado)
+    por_banco = gerar_contratos_por_banco(base_df)
     por_banco.to_excel(writer, sheet_name="Contratos por Banco", index=False)
 
 
