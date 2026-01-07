@@ -167,3 +167,5 @@ Todas as funcionalidades abaixo são específicas para o banco **MINAS CAIXA**.
 **Status:** ✅ Implementado e pronto para testes
 
 
+
+

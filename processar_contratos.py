@@ -430,39 +430,50 @@ def processar_3026_12_com_abas(
     months_back: int = 2
 ) -> dict:
     """
-    Processa arquivo 3026-12 e retorna dicionário com abas separadas para AUD e NAUD
-    Retorna: {'aud': DataFrame, 'naud': DataFrame, 'todos': DataFrame}
-    IMPORTANTE: NÃO remove duplicados - mantém todos os dados originais.
+    Processa o arquivo 3026-12 e retorna DataFrames organizados por aba.
+    Retorna todas as variantes necessárias (todos, aud, naud e últimos 2 meses).
     """
     df = pd.read_excel(io.BytesIO(contents), engine="openpyxl")
-    
-    # Aplicar filtros específicos do 3026-12 (DEST.PAGAM, DEST.COMPLEM)
-    # IMPORTANTE: Isso pode reduzir os dados, mas é necessário conforme especificação
     df = _apply_3026_12_filters(df)
-    
-    # Aplicar filtro de período APENAS se habilitado
+    df_base = df.copy()
+
+    audit_col = _find_column(df_base, AUDIT_COLUMN_CANDIDATES)
+    mask_aud = pd.Series(False, index=df_base.index)
+    mask_naud = pd.Series(False, index=df_base.index)
+
+    if audit_col in df_base.columns:
+        values = df_base[audit_col].astype(str).str.upper().str.strip()
+        mask_aud = values.isin({"AUD", "AUDI"})
+        mask_naud = values == "NAUD"
+
+    df_aud = df_base[mask_aud].copy()
+    df_naud = df_base[mask_naud].copy()
+
     if period_filter_enabled and reference_date:
-        df = _apply_period_filter(df, period_filter_enabled, reference_date, months_back)
-    
-    # Separar por AUDITADO (mantendo todos os dados, incluindo duplicados)
-    audit_col = _find_column(df, AUDIT_COLUMN_CANDIDATES)
-    if not audit_col:
-        # Se não encontrar coluna AUDITADO, retorna tudo em 'todos'
-        return {'aud': pd.DataFrame(), 'naud': pd.DataFrame(), 'todos': df}
-    
-    col_values = df[audit_col].astype(str).str.upper().str.strip()
-    
-    # Separar AUD e NAUD (mantendo todos os dados)
-    df_aud = df[col_values.isin({"AUD", "AUDI"})].copy()
-    df_naud = df[col_values == "NAUD"].copy()
-    
-    # NÃO remover duplicados - manter todos os dados originais
-    
-    return {
-        'aud': adicionar_coluna_banco(df_aud, bank_type),
-        'naud': adicionar_coluna_banco(df_naud, bank_type),
-        'todos': adicionar_coluna_banco(df, bank_type)
+        df_period_base = _apply_period_filter(df_base, True, reference_date, months_back)
+        period_mask = df_period_base.index
+        period_values = (
+            df_period_base[audit_col].astype(str).str.upper().str.strip()
+            if audit_col in df_period_base.columns
+            else pd.Series([], dtype=str)
+        )
+        df_period_aud = df_period_base[df_period_base.index.isin(period_mask) & period_values.isin({"AUD", "AUDI"})].copy()
+        df_period_naud = df_period_base[df_period_base.index.isin(period_mask) & (period_values == "NAUD")].copy()
+    else:
+        df_period_base = pd.DataFrame(columns=df_base.columns)
+        df_period_aud = pd.DataFrame(columns=df_base.columns)
+        df_period_naud = pd.DataFrame(columns=df_base.columns)
+
+    results = {
+        "todos": adicionar_coluna_banco(df_base, bank_type),
+        "aud": adicionar_coluna_banco(df_aud, bank_type),
+        "naud": adicionar_coluna_banco(df_naud, bank_type),
+        "period_todos": adicionar_coluna_banco(df_period_base, bank_type),
+        "period_aud": adicionar_coluna_banco(df_period_aud, bank_type),
+        "period_naud": adicionar_coluna_banco(df_period_naud, bank_type),
     }
+
+    return results
 
 
 def concatenar_dataframes(dataframes: List[pd.DataFrame]) -> pd.DataFrame:

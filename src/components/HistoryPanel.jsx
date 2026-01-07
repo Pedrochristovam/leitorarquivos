@@ -16,6 +16,16 @@ function HistoryPanel({ history }) {
     return labels[filterType] || filterType
   }
 
+  const getFilenamesLabel = (filenames) => {
+    if (!filenames || filenames.length === 0) {
+      return 'Arquivos não informados'
+    }
+    if (filenames.length === 1) {
+      return filenames[0]
+    }
+    return filenames.join(', ')
+  }
+
   return (
     <div className="history-panel">
       <div className="history-header">
@@ -32,7 +42,7 @@ function HistoryPanel({ history }) {
             </div>
             <div className="history-item-content">
               <div className="history-item-main">
-                <span className="history-filename">{item.filename}</span>
+                <span className="history-filename">{getFilenamesLabel(item.filenames)}</span>
                 <span className="history-status">
                   <CheckCircle2 size={14} />
                   {item.status === 'success' ? 'Sucesso' : 'Erro'}

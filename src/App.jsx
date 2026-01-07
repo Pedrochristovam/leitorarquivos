@@ -149,6 +149,7 @@ function App() {
 
     try {
       setStatus('processing')
+      let resultPayload = null
       
       // Cria um AbortController para timeout
       const controller = new AbortController()
@@ -249,11 +250,13 @@ function App() {
           window.URL.revokeObjectURL(url)
         }, 100)
 
-        setResultData({
+        const payload = {
           message: 'Processamento concluído com sucesso!',
           total_files: files.length,
           bank: bankType
-        })
+        }
+        setResultData(payload)
+        resultPayload = payload
       } else {
         // Backend retorna JSON com os resultados
         const result = await response.json()
@@ -263,6 +266,7 @@ function App() {
         }
 
         setResultData(result)
+        resultPayload = result
       }
 
       setStatus('success')
@@ -276,7 +280,7 @@ function App() {
         fileType: fileType,
         date: new Date().toLocaleString('pt-BR'),
         status: 'success',
-        result: resultData
+        result: resultPayload
       }
       setHistory([historyItem, ...history])
       

@@ -88,11 +88,16 @@ async def processar_contratos(
     if has_3026_12:
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
-            dataframes_aud = []
-            dataframes_naud = []
+            sheet_accumulators = {
+                "todos": [],
+                "aud": [],
+                "naud": [],
+                "period_todos": [],
+                "period_aud": [],
+                "period_naud": []
+            }
             dataframes_outros = []
-            dataframes_todos = []
-            processed_for_summary = []
+            summary_sources = []
             
             for upload_file in files:
                 try:
@@ -100,29 +105,21 @@ async def processar_contratos(
                     filename_upper = upload_file.filename.upper()
                     
                     if "3026-12" in filename_upper:
-                        # Processar 3026-12 com abas separadas (BEMGE e MINAS CAIXA)
                         abas = processar_3026_12_com_abas(
-                            contents, 
-                            bank_lower, 
+                            contents,
+                            bank_lower,
                             filter_lower,
                             period_filter_flag,
                             reference_date_value,
                             months_back_int
                         )
-                        
-                        # Adicionar às listas conforme filtro selecionado
-                        if filter_lower == "auditado" or filter_lower == "todos":
-                            if not abas['aud'].empty:
-                                dataframes_aud.append(abas['aud'])
-                        
-                        if filter_lower == "nauditado" or filter_lower == "todos":
-                            if not abas['naud'].empty:
-                                dataframes_naud.append(abas['naud'])
-
-                        if not abas['todos'].empty:
-                            dataframes_todos.append(abas['todos'])
+                        for key in sheet_accumulators:
+                            df_sheet = abas.get(key)
+                            if df_sheet is not None and not df_sheet.empty:
+                                sheet_accumulators[key].append(df_sheet)
+                                if key == "todos":
+                                    summary_sources.append(df_sheet)
                     else:
-                        # Processar outros arquivos normalmente
                         df_filtrado = filtrar_planilha_contratos(
                             contents,
                             filter_lower,
@@ -140,6 +137,7 @@ async def processar_contratos(
                         )
                         if not df_filtrado.empty:
                             dataframes_outros.append(df_filtrado)
+                            summary_sources.append(df_filtrado)
                 except Exception as exc:
                     raise HTTPException(
                         status_code=400, detail=f"Falha ao ler '{upload_file.filename}': {str(exc)}"
@@ -147,63 +145,44 @@ async def processar_contratos(
                 finally:
                     await upload_file.close()
             
-            # Criar abas separadas para AUD e NAUD (3026-12)
-            # Nomes padronizados conforme banco
-            if dataframes_aud:
-                df_aud_consolidado = concatenar_dataframes(dataframes_aud)
-                if not df_aud_consolidado.empty:
-                    df_aud_consolidado = adicionar_coluna_banco(df_aud_consolidado, bank_lower)
-                    processed_for_summary.append(df_aud_consolidado)
-                    if is_minas_caixa:
-                        df_aud_consolidado.to_excel(writer, sheet_name="Minas Caixa 3026-12-Homol. Auditado", index=False)
-                    else:
-                        df_aud_consolidado.to_excel(writer, sheet_name="AUD - Auditados", index=False)
-            
-            if dataframes_naud:
-                df_naud_consolidado = concatenar_dataframes(dataframes_naud)
-                if not df_naud_consolidado.empty:
-                    df_naud_consolidado = adicionar_coluna_banco(df_naud_consolidado, bank_lower)
-                    processed_for_summary.append(df_naud_consolidado)
-                    if is_minas_caixa:
-                        df_naud_consolidado.to_excel(writer, sheet_name="Minas Caixa 3026-12-Homol.Não Auditado", index=False)
-                    else:
-                        df_naud_consolidado.to_excel(writer, sheet_name="NAUD - Não Auditados", index=False)
+            bank_prefix = "Minas Caixa 3026-12" if is_minas_caixa else "Bemge 3026-12"
+            sheet_config = [
+                ("Todos os Contratos", "todos"),
+                (f"{bank_prefix}-Homol.Auditados", "aud"),
+                (f"{bank_prefix}-Homol.Não Auditado", "naud"),
+                ("Últimos 2 Meses - Auditados", "period_aud"),
+                ("Últimos 2 Meses - Não Auditados", "period_naud"),
+                ("Últimos 2 Meses - Todos os Contratos", "period_todos"),
+            ]
 
-            if dataframes_todos:
-                df_todos_consolidado = concatenar_dataframes(dataframes_todos)
-                if not df_todos_consolidado.empty:
-                    df_todos_consolidado = adicionar_coluna_banco(df_todos_consolidado, bank_lower)
-                    banco_nome = "Minas Caixa" if is_minas_caixa else "Bemge"
-                    sheet_name = f"{banco_nome} 3026-12-Todos os Contratos"
-                    df_todos_consolidado.to_excel(writer, sheet_name=sheet_name, index=False)
-            
-            # Adicionar outros arquivos processados
+            dfs_written = []
+            for sheet_name, key in sheet_config:
+                if sheet_accumulators.get(key):
+                    df_sheet = concatenar_dataframes(sheet_accumulators[key])
+                    if not df_sheet.empty:
+                        df_sheet = adicionar_coluna_banco(df_sheet, bank_lower)
+                        df_sheet.to_excel(writer, sheet_name=sheet_name, index=False)
+                        dfs_written.append(df_sheet)
+
             if dataframes_outros:
                 df_outros_consolidado = concatenar_dataframes(dataframes_outros)
                 if not df_outros_consolidado.empty:
                     df_outros_consolidado = adicionar_coluna_banco(df_outros_consolidado, bank_lower)
-                    processed_for_summary.append(df_outros_consolidado)
                     df_outros_consolidado.to_excel(writer, sheet_name="Dados Filtrados", index=False)
-            
-            # Se não houver nenhum dado, criar aba vazia
-            if not dataframes_aud and not dataframes_naud and not dataframes_outros:
+                    dfs_written.append(df_outros_consolidado)
+
+            if not dfs_written:
                 pd.DataFrame().to_excel(writer, sheet_name="Dados Filtrados", index=False)
-            elif processed_for_summary:
-                df_consolidado_total = concatenar_dataframes(processed_for_summary)
-                if not df_consolidado_total.empty:
-                    df_full_dataset = None
-                    if dataframes_todos:
-                        df_full_dataset = concatenar_dataframes(dataframes_todos)
-                        if not df_full_dataset.empty:
-                            df_full_dataset = adicionar_coluna_banco(df_full_dataset, bank_lower)
-                        else:
-                            df_full_dataset = None
-                    _adicionar_abas_resumo(
-                        writer,
-                        df_consolidado_total,
-                        len(files),
-                        df_full=df_full_dataset
-                    )
+            else:
+                df_full_dataset = concatenar_dataframes(summary_sources) if summary_sources else pd.DataFrame()
+                if df_full_dataset.empty:
+                    df_full_dataset = concatenar_dataframes(dfs_written)
+                _adicionar_abas_resumo(
+                    writer,
+                    concatenar_dataframes(dfs_written),
+                    len(files),
+                    df_full=df_full_dataset if not df_full_dataset.empty else None
+                )
         
         output.seek(0)
         
@@ -254,7 +233,7 @@ async def processar_contratos(
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         df_consolidado.to_excel(writer, sheet_name="Dados Filtrados", index=False)
-        _adicionar_abas_resumo(writer, df_consolidado, len(files))
+        _adicionar_abas_resumo(writer, df_consolidado, len(files), df_full=df_consolidado)
     output.seek(0)
 
     # Nomes padronizados conforme banco

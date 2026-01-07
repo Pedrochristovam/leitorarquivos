@@ -1,0 +1,16 @@
+## main...origin/main
+ M ALTERACOES_BACKEND_DEZEMBRO.md
+ M CORRECOES_APLICADAS.md
+ M CORRECOES_TESTES.md
+ M IMPLEMENTACOES_BEMGE.md
+ M IMPLEMENTACOES_MINAS_CAIXA.md
+ M PROMPT_CORRIGIR_BACKEND.md
+ M processar_contratos.py
+ M servidor.py
+ M src/App.jsx
+ M src/components/HabitacionalFilter.css
+ M src/components/HistoryPanel.jsx
+ M src/components/PeriodFilter.css
+ M src/components/PeriodFilter.jsx
+?? ersUserOneDriveDesktopleitorarquivos
+?? status.txt

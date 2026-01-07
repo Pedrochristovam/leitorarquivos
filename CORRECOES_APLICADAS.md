@@ -87,3 +87,5 @@ if period_filter_enabled:
 **Status:** ✅ Correções aplicadas e prontas para teste
 
 
+
+
